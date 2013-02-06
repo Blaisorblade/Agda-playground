@@ -162,3 +162,9 @@ lem-filter p (x :: xs) | true = keep (lem-filter p xs)
 lem-filter p (x :: xs) | false = drop (lem-filter p xs)
 --lem-filter p (x :: xs) | true = keep (lem-filter p xs)
 --lem-filter p (x :: xs) | false = drop (lem-filter p xs)
+
+{-
+_=>_ : (A : Set) → (B : {A : Set} -> Set) → Set
+A => B = A -> B {A}
+v = Nat => Nat
+-}
