@@ -34,14 +34,33 @@ right-inv {t} {a} {b} _ = refl
 reassemble : ∀ {t} → (a : t) → {b : t} → Delta t a b → t
 reassemble a {b} _ = b
 
+_⊹_ = reassemble
+_●_ = append
+infixl 6 _⊹_
+infixl 6 _●_
+
 -- What's there to prove after all? Well, there is still something.
 
 reassemble-id : ∀ {t} {a : t} → reassemble a id ≡ a
 reassemble-id = refl
 
 -- Check that this is indeed right associativity. It seems too obvious.
-reassemble-right-assoc : ∀ {t} → {a b c : t} → {d1 : Delta t a b} → {d2 : Delta t b c} → reassemble (reassemble a d1) d2 ≡ reassemble a (append d1 d2)
+reassemble-right-assoc : ∀ {t} → {a b c : t} → {d1 : Delta t a b} → {d2 : Delta t b c} → (a ⊹ d1) ⊹ d2 ≡ a ⊹ (d1 ● d2)
 reassemble-right-assoc {t} {a} {b} {c} {d1} {d2} = refl
+
+{-
+The idea, below, was to show that the proved theorems are sufficient.
+In fact, here it's too easy to prove anything - Agda's auto is enough
+to generate the needed proof term, namely refl.
+We'd need to do the proofs using only the interface. But that's for later.
+-}
+
+example-corollary : ∀ {t} → (a b : t) → (d : Delta t a b) → a ⊹ d ⊹ inv d ≡ a
+example-corollary {t} a b d = refl
+
+example-corollary2 : ∀ {t} {a b c d e : t} → {d1 : Delta t a b} → {d2 : Delta t b c} → {d3 : Delta t c d} → {d4 : Delta t d e} →
+  a ⊹ d1 ⊹ d2 ⊹ d3 ⊹ d4 ≡ a ⊹ (d1 ● d2 ● d3 ● d4)
+example-corollary2 = refl
 
 {-
 DeltaIsSemigroup : {t : Set} → ∀ {eq} → IsSemigroup _≡_ (append {t} {eq})
