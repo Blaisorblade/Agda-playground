@@ -2,8 +2,20 @@ module DeltaGroupoid where
 
 open import Relation.Binary.PropositionalEquality
 
+-- Define datatype representing a change from a to b. In general, this is an arrow betwen the objects a and b.
 record Delta {t : Set} (a : t) (b : t) : Set where
   constructor pp
+-- In this case, the type is indexed by the concrete values a and b, which specify all needed information on the change.
+-- Categorically, the objects are singletons sets or types. IOW, Delta t is the category having for objects singleton types a.type <: t,
+-- and for arrows values of type Delta t a b. Each hom-set is a singleton as well.
+-- One can also say that arrows between a and b are total functions between a.type and b.type; since there is only one such total function, this definition is isomorphic.
+-- We can thus say that we are dealing with the category of singleton types (which is even cartesian closed, since hom-sets are singletons anyway; we probably need
+-- to pick an isomorphism).
+
+{-
+Wikipedia gives the construction which I use to turn groups into groupoids (http://en.wikipedia.org/wiki/Groupoid):
+Every connected groupoid (that is, one in which any two objects are connected by at least one morphism) is isomorphic to a groupoid of the following form. Pick a group G and a set (or class) X. Let the objects of the groupoid be the elements of X. For elements x and y of X, let the set of morphisms from x to y be G. Composition of morphisms is the group operation of G. If the groupoid is not connected, then it is isomorphic to a disjoint union of groupoids of the above type (possibly with different groups G for each connected component). Thus any groupoid may be given (up to isomorphism) by a set of ordered pairs (X,G).
+-}
 
 Change : ∀ {t} a b → Delta {t} a b
 Change a b = _
