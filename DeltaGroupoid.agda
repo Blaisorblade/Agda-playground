@@ -46,10 +46,10 @@ append-idL {t} {a} {b} _ = refl
 append-idR : ∀ {t a b} → (x : Delta {t} a b) → x ● id ≡ x
 append-idR _ = refl
 
-left-inv : ∀ {t a b} → (x : Delta {t} a b) → x ● inv x ≡ id
+left-inv : ∀ {t a b} → (x : Delta {t} a b) → inv x ● x ≡ id
 left-inv {t} {a} {b} _ = refl
 
-right-inv : ∀ {t a b} → (x : Delta {t} a b) → inv x ● x ≡ id
+right-inv : ∀ {t a b} → (x : Delta {t} a b) → x ● inv x ≡ id
 right-inv {t} {a} {b} _ = refl
 
 -- What's there to prove after all? Well, there is still something.
@@ -75,29 +75,62 @@ example-corollary2 : ∀ {t a b c d e} → {d1 : Delta {t} a b} → {d2 : Delta 
   a ⊹ d1 ⊹ d2 ⊹ d3 ⊹ d4 ≡ a ⊹ (d1 ● d2 ● d3 ● d4)
 example-corollary2 = refl
 
-{-
-DeltaIsSemigroup : {t : Set} → ∀ {eq} → IsSemigroup _≡_ (append {t} {eq})
-DeltaIsSemigroup = record
-  { isEquivalence = isEquivalence
-  ; assoc = assoc-append
-  ; ∙-cong = cong₂ append
-  }
+open import Relation.Binary
+open import Level
 
-DeltaIsMonoid : {t : Set} → ∀ {eq} → IsMonoid _≡_ (append {t} {eq}) NoChange
-DeltaIsMonoid {t} = record
-  { isSemigroup = DeltaIsSemigroup
-  ; identity = append-idL , append-idR
-  }
+record IsGroupoid {α β l : Level} (A : Set α) (Arr : (A -> A -> Set β))
+  (eq : {a b : A} → Rel (Arr a b) l) (op : {a b c : A} → (Arr a b) → (Arr b c) → (Arr a c)) : Set (α ⊔ β ⊔ l) where
 
--- Delta is in fact not a group. We can only provide inverses if we give up having a single identity and make this a category.
-{-
-DeltaIsGroup : (t : Set) → (eq : t → t → Bool) → Group zero zero
-DeltaIsGroup t eq = record {
-                   Carrier = Delta t eq;
-                   _≈_ = _≡_;
-                   _∙_ = append;
-                   ε = NoChange;
-                   _⁻¹ = inv;
-                   isGroup = record { isMonoid = DeltaIsMonoid; inverse = {!!} , {!!}; ⁻¹-cong = cong inv } }
--}
--}
+  infixl 7 _◎_
+  infix 4 _≈_
+
+  _◎_ : {a b c : A} → (Arr a b) → (Arr b c) → (Arr a c)
+  _◎_ = op
+  _≈_ : {a b : A} → Rel (Arr a b) l
+  _≈_ = eq
+
+  field
+    isEquivalence-eq : {a b : A} → IsEquivalence {A = Arr a b} _≈_
+
+    assoc-op : {a b c d : A} → (x : Arr a b) → (y : Arr b c) → (z : Arr c d) → ((x ◎ y) ◎ z) ≈ (x ◎ (y ◎ z))
+
+    id-op : {a : A} → Arr a a
+
+    op-id-left : ∀ {a b} → (x : Arr a b) → (id-op ◎ x) ≈ x
+    op-id-right : ∀ {a b} → (x : Arr a b) → (x ◎ id-op) ≈ x
+
+    inv-op : {a b : A} → Arr a b → Arr b a
+    inv-op-left  : ∀ {a b} → (arr : Arr a b) → ((inv-op arr) ◎ arr) ≈ id-op
+    inv-op-right : ∀ {a b} → (arr : Arr a b) → (arr ◎ (inv-op arr)) ≈ id-op
+
+DeltaIsGroupoid : {t : Set} → IsGroupoid t (Delta {t}) _≡_ append
+DeltaIsGroupoid {t} = record {
+                        isEquivalence-eq = isEquivalence;
+                        assoc-op = assoc-append;
+                        id-op = id;
+                        op-id-left = append-idL;
+                        op-id-right = append-idL;
+                        inv-op = inv;
+                        inv-op-left = left-inv;
+                        inv-op-right = right-inv }
+
+open ≡-Reasoning
+
+example-corollary-3-gen : {A : Set} → {Arr : A → A → Set} → {_⊗_ : ∀ {a b c} → Arr a b → Arr b c → Arr a c} → IsGroupoid A Arr _≡_ _⊗_ →
+  {t1 t2 t3 t4 : A} → {a : Arr t1 t2} → {b : Arr t2 t3} → {c : Arr t3 t4} → (a ⊗ b) ⊗ c ≡ a ⊗ (b ⊗ c)
+example-corollary-3-gen isGroup = IsGroupoid.assoc-op isGroup _ _ _
+
+example-corollary-4-operand-associativity : {A : Set} → {Arr : A → A → Set} → (_⊗_ : ∀ {a b c} → Arr a b → Arr b c → Arr a c) → IsGroupoid A Arr _≡_ _⊗_ →
+  {t1 t2 t3 t4 t5 : A} → (a : Arr t1 t2) → (b : Arr t2 t3) → (c : Arr t3 t4) → (d : Arr t4 t5) → ((a ⊗ b) ⊗ c) ⊗ d ≡ a ⊗ (b ⊗ (c ⊗ d))
+example-corollary-4-operand-associativity _⊗_ isGroup a b c d =
+  begin
+    ((a ⊗ b) ⊗ c) ⊗ d
+  ≡⟨ IsGroupoid.assoc-op isGroup _ _ _ ⟩
+    (a ⊗ b) ⊗ (c ⊗ d)
+  ≡⟨ IsGroupoid.assoc-op isGroup _ _ _ ⟩
+    a ⊗ (b ⊗ (c ⊗ d))
+  ∎
+
+  -- This could also be written as:
+  --trans (IsGroupoid.assoc-op isGroup _ _ _) (IsGroupoid.assoc-op isGroup _ _ _)
+  -- But the above seems clearer.
