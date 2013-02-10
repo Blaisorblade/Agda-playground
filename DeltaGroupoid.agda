@@ -29,6 +29,10 @@ inv _ = _
 append : ∀ {t a b c} → Delta {t} a b → Delta b c → Delta a c
 append _ _ = _
 
+{- reassemble could be considered a derived operation, given an embed method which turns a value into a delta producing
+that value. In this framework, we'd need to specify a source, as well.
+Then a ⊹ b would correspond to the destination of (embed a src) ● b; we can try to derive the laws about reassemble from the laws it would satisfy in that case.
+-}
 reassemble : ∀ {t} a {b} → Delta {t} a b → t
 reassemble a {b} _ = b
 
@@ -58,9 +62,44 @@ right-inv {t} {a} {b} _ = refl
 reassemble-id : ∀ {t} {a : t} → a ⊹ id ≡ a
 reassemble-id = refl
 
+reassemble-can-append-deltas-before : ∀ {t a b c} → {d1 : Delta {t} a b} → {d2 : Delta b c} → (a ⊹ d1) ⊹ d2 ≡ a ⊹ (d1 ● d2)
+reassemble-can-append-deltas-before {t} {a} {b} {c} {d1} {d2} = refl
 -- Check that this is indeed right associativity. It seems too obvious.
-reassemble-right-assoc : ∀ {t a b c} → {d1 : Delta {t} a b} → {d2 : Delta b c} → (a ⊹ d1) ⊹ d2 ≡ a ⊹ (d1 ● d2)
-reassemble-right-assoc {t} {a} {b} {c} {d1} {d2} = refl
+{-
+
+Left-commutativity, in Grust's PhD thesis, page 24 (so-called 14):
+  y : (x : xs) = x : (y : xs).
+This would suggest there is no such thing as right associativity. Or rather, the term exists, but it only refers to how operators are parenthesized.
+If we'd define `reassemble a delta` as `deembed (embed a ● delta)`, with embed (deembed a) = a, however, the above statement would become
+  embed a ● d1 ● d2 ≡ embed a ● (d1 ● d2)
+reassemble-id would become:
+  embed a ● id = embed a
+(that's weaker though, unless we stipulate that embed is injective and thus left-invertible).
+The difference is that ● has inverses, so we'd also be able to deduce that:
+  embed a ● inv (embed a) = inv (embed a) ● embed a = id
+But reassemble doesn't even allow expresing inv (embed a), much less proving the above theorem.
+Moreover, embed doesn't work so well for groupoids as it does for groups. The type of embed, in a groupoid, should be
+  embed :: (a : t) → Delta t zero a
+where zero : t is the identity for addition. This calls for making collections (or extensions of collections) groups themselves.
+
+OTOH, the original reason for wanting inverses was to be able to
+subtract values, not deltas. If I embed values as deltas, inverses of
+deltas allow constructing inverses of values.
+
+So, we get that for each interesting type T we might still want a
+groupoid of deltas, but for a collection of Ts we want to build not
+only a group of deltas, but an embedding of values into this group,
+together with the required zero element. Having such a group of deltas
+and embedding, one should be able to form a group of base values. The
+only problem is proving closure: operations on embedded elements do
+not necessarily produce embedded ones. I think we need to provide
+deembed and state that `deembed (embed a) = a` (we need the other
+inverse property above). `deembed a` would just be `reassemble zero
+a`, operationally, and viceversa, as stated above, `reassemble a delta
+= deembed (embed a ● delta)`; this would be an identity (either an
+axiom or a theorem), not an implementation.
+
+-}
 
 {-
 The idea, below, was to show that the proved theorems are sufficient.
