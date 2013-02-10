@@ -34,6 +34,7 @@ reassemble a {b} _ = b
 
 _⊹_ = reassemble
 _●_ = append
+_⁻¹ = inv
 infixl 6 _⊹_
 infixl 6 _●_
 
@@ -46,10 +47,10 @@ append-idL {t} {a} {b} _ = refl
 append-idR : ∀ {t a b} → (x : Delta {t} a b) → x ● id ≡ x
 append-idR _ = refl
 
-left-inv : ∀ {t a b} → (x : Delta {t} a b) → inv x ● x ≡ id
+left-inv : ∀ {t a b} → (x : Delta {t} a b) → x ⁻¹ ● x ≡ id
 left-inv {t} {a} {b} _ = refl
 
-right-inv : ∀ {t a b} → (x : Delta {t} a b) → x ● inv x ≡ id
+right-inv : ∀ {t a b} → (x : Delta {t} a b) → x ● x ⁻¹ ≡ id
 right-inv {t} {a} {b} _ = refl
 
 -- What's there to prove after all? Well, there is still something.
@@ -68,7 +69,7 @@ to generate the needed proof term, namely refl.
 We'd need to do the proofs using only the interface. But that's for later.
 -}
 
-example-corollary : ∀ {t a b} → (d : Delta {t} a b) → a ⊹ d ⊹ inv d ≡ a
+example-corollary : ∀ {t a b} → (d : Delta {t} a b) → a ⊹ d ⊹ d ⁻¹ ≡ a
 example-corollary d = refl
 
 example-corollary2 : ∀ {t a b c d e} → {d1 : Delta {t} a b} → {d2 : Delta b c} → {d3 : Delta c d} → {d4 : Delta d e} →
