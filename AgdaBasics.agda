@@ -121,6 +121,15 @@ data _≤M_ : ℕ → ℕ → Set where
   leq-zero : {n : ℕ} → zero ≤M n
   leq-succ : {m n : ℕ} → m ≤M n → suc m ≤M suc n
 
+-- Alternative definition of less-than, inspired by removing pieces
+-- from classical set containment. In fact, set containment could also
+-- be simplified along the above lines.
+
+data _≤M2_ : ℕ → ℕ → Set where
+  leq-zero : {n : ℕ} → zero ≤M2 zero
+  leq-inc : {m n : ℕ} → m ≤M2 n → m ≤M2 suc n
+  leq-cong : {m n : ℕ} → m ≤M2 n → suc m ≤M2 suc n
+
 leq-trans : ∀ {a b c} → a ≤M b → b ≤M c → a ≤M c
 leq-trans leq-zero _ = leq-zero
 leq-trans (leq-succ a≤Mb) (leq-succ b≤Mc) = leq-succ (leq-trans a≤Mb b≤Mc)
