@@ -99,6 +99,8 @@ a`, operationally, and viceversa, as stated above, `reassemble a delta
 = deembed (embed a ● delta)`; this would be an identity (either an
 axiom or a theorem), not an implementation.
 
+The above is formally correct, except that we can't usually deembed deltas to collections. Deembed needs to target some larger set. Moreover, the point of
+deembed is just to go back to the group of deltas, isn't it? Man, how confused am I...
 -}
 
 {-
