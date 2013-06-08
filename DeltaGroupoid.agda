@@ -86,18 +86,13 @@ OTOH, the original reason for wanting inverses was to be able to
 subtract values, not deltas. If I embed values as deltas, inverses of
 deltas allow constructing inverses of values.
 
-So, we get that for each interesting type T we might still want a
-groupoid of deltas, but for a collection of Ts we want to build not
-only a group of deltas, but an embedding of values into this group,
-together with the required zero element. Having such a group of deltas
-and embedding, one should be able to form a group of base values. The
-only problem is proving closure: operations on embedded elements do
-not necessarily produce embedded ones. I think we need to provide
-deembed and state that `deembed (embed a) = a` (we need the other
-inverse property above). `deembed a` would just be `reassemble zero
-a`, operationally, and viceversa, as stated above, `reassemble a delta
-= deembed (embed a ● delta)`; this would be an identity (either an
-axiom or a theorem), not an implementation.
+So, we get that for each interesting type T we might still want a groupoid of deltas, but for a collection of Ts we want
+to build not only a group of deltas, but an embedding of values into this group, together with the required zero
+element. Having such a group of deltas and embedding, one should be able to form a group of base values. The only
+problem is proving closure: operations on embedded elements do not necessarily produce embedded ones. I think we need to
+provide deembed and state that `deembed (embed a) = a` (we need the other inverse property above). `deembed a` would
+just be `reassemble zero a`, operationally, and viceversa, as stated above, `reassemble a delta = deembed (embed a ●
+delta)`; this would be an identity (either an axiom or a theorem), not an implementation.
 
 The above is formally correct, except that we can't usually deembed deltas to collections. Deembed needs to target some larger set. Moreover, the point of
 deembed is just to go back to the group of deltas, isn't it? Man, how confused am I...
