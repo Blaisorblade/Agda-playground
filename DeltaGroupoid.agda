@@ -171,3 +171,46 @@ example-corollary-4-operand-associativity _⊗_ isGroup a b c d =
   -- This could also be written as:
   --trans (IsGroupoid.assoc-op isGroup _ _ _) (IsGroupoid.assoc-op isGroup _ _ _)
   -- But the above seems clearer.
+
+-- New theorems, mostly concerning Change.
+
+Change-correct : ∀ {t} (a b : t) → a ⊹ Change a b ≡ b
+Change-correct a b = refl
+
+append-Change : ∀ {t} (s₁ s₂ s₃ : t) (ds : Delta s₂ s₃) → (Change s₁ s₂) ● ds ≡ Change s₁ (s₂ ⊹ ds)
+append-Change s₁ s₂ s₃ ds = refl
+
+-- (s₂ ⊝ (ds ⊕ s₁)) ∘ ds &= t₂ ⊝ t₁ (?)
+Change-append-reassemble : ∀ {t} (s₁ s₂ s₃ : t) (ds : Delta s₁ s₃) → ds ● Change (s₁ ⊹ ds) s₂ ≡ Change s₁ s₂
+Change-append-reassemble s₁ s₂ s₃ d = refl
+
+-- diff-apply. This doesn't work for non-valid changes, which don't exist here.
+Change-reassemble : ∀ {t} (s s′ : t) (ds : Delta s s′) → Change s (s ⊹ ds) ≡ ds
+Change-reassemble s s′ ds = refl
+-- Change-reassemble s s′ ds = {! refl } -- Auto doesn't work here; C-c C-SPACE
+-- produces unsolved metavariables, but reloading solves them.
+
+Change-a-a-is-nil : ∀ {t} {a : t} → Change a a ≡ id
+Change-a-a-is-nil = refl
+
+-- We can take this as an axiom for our theory, since it holds in this model:
+append-Change-Change : ∀ {t} (s₁ s₂ s₃ : t) → Change s₁ s₃ ≡ Change s₁ s₂ ● Change s₂ s₃
+append-Change-Change s₁ s₂ s₃ = refl
+
+-- or we can try proving it from other axioms. However, since the definition is not abstract, we can't restrict ourselves to the axioms so easily.
+
+append-Change-Change-2 : ∀ {t} (s₁ s₂ s₃ : t) → Change s₁ s₂ ● Change s₂ s₃ ≡ Change s₁ s₃
+append-Change-Change-2 s₁ s₂ s₃ =
+  begin
+    Change s₁ s₂ ● Change s₂ s₃
+  ≡⟨ append-Change s₁ s₂ s₃ (Change s₂ s₃) ⟩
+    Change s₁ (s₂ ⊹ (Change s₂ s₃))
+-- This does not go through, even though it should be correct:
+--
+--  ≡⟨ cong (λ b → Change s₁ b) (Change-correct s₂ s₃) ⟩
+--
+  ≡⟨ cong (λ b → Change s₁ s₃) (Change-correct s₂ s₃) ⟩
+    Change s₁ s₃
+  ∎
+  where
+    open ≡-Reasoning
