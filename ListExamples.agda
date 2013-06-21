@@ -26,7 +26,11 @@ data _contains_ : List Set → List Set → Set₁ where
 -- of values and a proof of containment.
 
 filterTypes : ∀ {Γ Γ′} → MyList Γ → Γ contains Γ′ → MyList Γ′
+filterTypes {.[]} {[]} nil x₁ = nil
+filterTypes (cons v vs) (dropFirst contain) = filterTypes vs contain
+filterTypes (cons v vs) (keepFirst contain) = cons v (filterTypes vs contain)
 
+{-
 -- Definition by cases - this is executed using pattern matching. Note
 -- that in Agda function definitions must be total; the typechecker
 -- will verify that the cases given cover all possible input values.
@@ -54,3 +58,4 @@ filterTypes2 (t ∷ ts) Γ′        (cons v vs) (dropFirst contains) = filterTy
 -- use a dot as a prefix for one occurrence, so the second is .t
 
 filterTypes2 (t ∷ ts) (.t ∷ Γ₂) (cons v vs) (keepFirst contains) = cons v (filterTypes2 ts Γ₂ vs contains)
+-}
