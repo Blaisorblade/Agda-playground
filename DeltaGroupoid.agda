@@ -190,14 +190,14 @@ Change-reassemble s s′ ds = refl
 -- Change-reassemble s s′ ds = {! refl } -- Auto doesn't work here; C-c C-SPACE
 -- produces unsolved metavariables, but reloading solves them.
 
+-- We can take these two as an axiom for our theory, since it holds in this model:
 Change-a-a-is-nil : ∀ {t} {a : t} → Change a a ≡ id
 Change-a-a-is-nil = refl
 
--- We can take this as an axiom for our theory, since it holds in this model:
 append-Change-Change : ∀ {t} (s₁ s₂ s₃ : t) → Change s₁ s₃ ≡ Change s₁ s₂ ● Change s₂ s₃
 append-Change-Change s₁ s₂ s₃ = refl
 
--- or we can try proving it from other axioms. However, since the definition is not abstract, we can't restrict ourselves to the axioms so easily.
+-- or we can try proving them from other axioms. However, since the definition is not abstract, we can't restrict ourselves to the axioms so easily.
 
 append-Change-Change-2 : ∀ {t} (s₁ s₂ s₃ : t) → Change s₁ s₂ ● Change s₂ s₃ ≡ Change s₁ s₃
 append-Change-Change-2 s₁ s₂ s₃ =
