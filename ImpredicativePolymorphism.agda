@@ -23,26 +23,27 @@ proof : res ≡ res
 proof = refl
 -}
 
+open import Level
+
 -- Actually working code:
-id-type : Set₁
-id-type = ∀ T → (t : T) → T
+id-type : ∀ ℓ → Set (suc ℓ)
+id-type ℓ = ∀ T → (t : T) → T
 -- Note that the type-checker forces us to write Set₁ there, not Set (which is
 -- an alias of Set₀). The typechecker is so good that one often does not need to
 -- fully understand level errors - it's enough to know that sometimes you need
 -- to have a bigger index :-).
 
 -- Level-polymorphic id:
-my-id : ∀ {l} (T : Set l) → (t : T) → T
-my-id T t = t
--- Note that id-type is an *instance* of the above type.
+my-id : ∀ ℓ (T : Set ℓ) → (t : T) → T
+my-id ℓ T t = t
 
--- It looks like this is impredicative polymorphism, right? Instead, this relies
--- on level-polymorphism.
-res = my-id id-type my-id
+-- If you ignore the explicit levels, this looks like impredicative
+-- polymorphism, right? Instead, it relies on level-polymorphism.
+res = my-id (suc zero) (id-type zero) (my-id zero)
 
 -- This verifies that simple-ml-id is trivially an identity function.
 
-proof : res ≡ my-id
+proof : res ≡ (my-id zero)
 proof = refl
 
 -- Simpler id, probably typable with ML polymorphism: 
