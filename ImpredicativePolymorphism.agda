@@ -41,6 +41,17 @@ my-id ℓ T t = t
 -- polymorphism, right? Instead, it relies on level-polymorphism.
 res = my-id (suc zero) (id-type zero) (my-id zero)
 
+-- Can we apply my-id to the level-polymorphic my-id?
+--
+--res2 = my-id ? ? my-id
+--
+-- Apparently not: the above line gives this error.
+{-
+((ℓ : Level) (T : Set ℓ) → T → T) !=< ?1
+because this would result in an invalid use of Setω
+when checking that the expression my-id has type ?1
+-}
+
 -- This verifies that simple-ml-id is trivially an identity function.
 
 proof : res ≡ (my-id zero)
