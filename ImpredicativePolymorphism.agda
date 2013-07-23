@@ -42,14 +42,14 @@ res = my-id id-type my-id
 
 -- This verifies that simple-ml-id is trivially an identity function.
 
-proof : res ≡ res
+proof : res ≡ my-id
 proof = refl
 
 -- Simpler id, probably typable with ML polymorphism: 
 simple-ml-id : ∀ (T : Set) → (t : T) → T
 simple-ml-id T t = t
 
--- Does not compile
+-- Does not typecheck - it would in Haskell, because Haskell is impredicative!
 -- res2 = simple-ml-id _ simple-ml-id
 
 -- This verifies that simple-ml-id is trivially an identity function.
