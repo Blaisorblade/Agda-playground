@@ -1,6 +1,5 @@
 open import Data.Nat
 open import Data.Empty
-open import Data.Maybe
 open import Data.Product
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
@@ -25,6 +24,12 @@ open import Level
 -- as the concept ofTSR is much more ill-defined.
 
 module TypedSelfRepresentation where
+
+  --open import Data.Maybe using (just; nothing; Maybe)
+  data Maybe {a} (A : Set a) : Set a where
+    just    : (x : A) → Maybe A
+    nothing : Maybe A
+
   module Proof (decode : ℕ → Maybe (ℕ → ℕ)) where
 {-
     newFun : ℕ → ℕ
@@ -50,7 +55,7 @@ module TypedSelfRepresentation where
     absurd : ∀ x → ¬ (x ≡ 1 + x)
     absurd n ()
 
-    invertMaybe : ∀ {ℓ} {A : Set ℓ} {a b : A} → _≡_ {ℓ} {Maybe A} (just a) (just b) → a ≡ b
+    invertMaybe : ∀ {ℓ} {A : Set ℓ} {a b : A} → just a ≡ just b → a ≡ b
     invertMaybe refl = refl
 
     step₁ : ∀ {f} x → f ≡ newFun → f x ≡ newFun x
