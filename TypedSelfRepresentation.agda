@@ -74,3 +74,15 @@ module TypedSelfRepresentation where
     --newFunIsNotDecoded (n , refl) | just .(λ n₁ → newFun decode n₁ | decode n₁) = ?
     newFunIsNotDecoded (n , ()) | nothing | _
     newFunIsNotDecoded (n , ≡₁) | just decodedF | [ eq ] = step₂ eq (step₁ n (invertMaybe ≡₁))
+
+    -- Summary of the above:
+    --
+    --   Strongly normalizing language => newFun is not in the image of decode.
+    --
+    -- We also have the contrapositive:
+    --
+    --   newFun is in the image of decode => NOT (Strongly normalizing language)
+    --
+    -- Just to remind us that contrapositives hold also intuistionistically:
+    contrapositive : ∀ {ℓ} {A B : Set ℓ} → (A → ¬ B) → (B → ¬ A)
+    contrapositive f = λ b a → f a b
