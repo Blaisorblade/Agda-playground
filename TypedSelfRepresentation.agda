@@ -21,7 +21,9 @@ open import Level
 -- And remove experiments from below.
 
 -- Future work: argue that TSR actually provides `decode`. This is much harder,
--- as the concept ofTSR is much more ill-defined.
+-- as the concept of TSR is less well-defined. It's easy to build decode from a
+-- self-typechecker, but the TSR paper does not provide that─but it would be
+-- natural for TSR in Agda.
 
 module TypedSelfRepresentation where
 
