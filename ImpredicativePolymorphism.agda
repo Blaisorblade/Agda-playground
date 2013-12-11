@@ -27,14 +27,14 @@ open import Level
 
 -- Actually working code:
 id-type : ∀ ℓ → Set (suc ℓ)
-id-type ℓ = ∀ T → (t : T) → T
+id-type ℓ = ∀ (T : Set ℓ) → (t : T) → T
 -- Note that the type-checker forces us to write Set₁ there, not Set (which is
 -- an alias of Set₀). The typechecker is so good that one often does not need to
 -- fully understand level errors - it's enough to know that sometimes you need
 -- to have a bigger index :-).
 
 -- Level-polymorphic id:
-my-id : ∀ ℓ (T : Set ℓ) → (t : T) → T
+my-id : ∀ ℓ → id-type ℓ
 my-id ℓ T t = t
 
 -- If you ignore the explicit levels, this looks like impredicative
@@ -50,6 +50,18 @@ res = my-id (suc zero) (id-type zero) (my-id zero)
 ((ℓ : Level) (T : Set ℓ) → T → T) !=< ?1
 because this would result in an invalid use of Setω
 when checking that the expression my-id has type ?1
+-}
+
+-- To understand why the above happens, let us verify that id-type does not have
+-- a type itself.
+{-
+type-of-id-type : ?
+type-of-id-type = ∀ ℓ → Set (suc ℓ)
+-}
+-- Error:
+{-
+Setω is not a valid type
+when checking that the expression (ℓ : _) → Set (suc ℓ) has type ?0
 -}
 
 -- This verifies that simple-ml-id is trivially an identity function.
