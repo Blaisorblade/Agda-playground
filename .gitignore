@@ -1,5 +1,5 @@
+/MAlonzo/
 *.agdai
-n/
-lib-0.6/
-lib-0.7/
+/away/
+/lib-0.7/
 *.tar.gz
