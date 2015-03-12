@@ -28,6 +28,15 @@ open import Level
 -- Actually working code:
 id-type : ∀ ℓ → Set (suc ℓ)
 id-type ℓ = ∀ (T : Set ℓ) → (t : T) → T
+
+-- In System F:
+-- (∀ T : * . T) : *
+--
+-- Here, both id-type zero and Set zero (a kind) have type Set (suc zero). Which
+-- is very confusing, because it means that my-id zero lives at the same level
+-- of types! That is, the usual understanding of levels as objects, types and
+-- kinds breaks down here.
+
 -- Note that the type-checker forces us to write Set₁ there, not Set (which is
 -- an alias of Set₀). The typechecker is so good that one often does not need to
 -- fully understand level errors - it's enough to know that sometimes you need
@@ -36,6 +45,14 @@ id-type ℓ = ∀ (T : Set ℓ) → (t : T) → T
 -- Level-polymorphic id:
 my-id : ∀ ℓ → id-type ℓ
 my-id ℓ T t = t
+
+-- in System F
+--my-id zero : id-type zero : Set zero
+-- here
+--my-id zero : id-type zero : Set₁
+
+v : Set₁
+v = id-type zero
 
 -- If you ignore the explicit levels, this looks like impredicative
 -- polymorphism, right? Instead, it relies on level-polymorphism.
