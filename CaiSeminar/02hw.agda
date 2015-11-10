@@ -26,20 +26,26 @@ open import BasicFeatures using
 -- Problem 1.1:
 -- Given 2 natural numbers x, y, decide whether x ≤ y.
 leNat : ℕ → ℕ → Bool
-leNat x y = {!!}
+leNat zero y = true
+leNat (suc x) zero = false
+leNat (suc x) (suc y) = leNat x y
 
 -- Problem 1.2:
 -- Given a number y and a list xs, insert y into xs before
 -- the first number in xs bigger than or equal to y.
 insert : ℕ → List ℕ → List ℕ
-insert y xs = {!!}
+insert y [] = y ∷ []
+insert y (x ∷ xs) with leNat y x
+... | true = y ∷ x ∷ xs
+... | false = x ∷ insert y xs
 
 -- Problem 1.3:
 -- Implement insertion sort.
 -- (Optional: implement a sorting algorithm that is not
 -- insertion sort.)
 sort : List ℕ → List ℕ
-sort xs = {!!}
+sort [] = []
+sort (x ∷ xs) = insert x (sort xs)
 
 -- Problem 2: Hailstorm numbers (oeis.org/A006577)
 -- Compute the next natural number in the 3x+1 problem:
@@ -48,8 +54,11 @@ sort xs = {!!}
 -- (Optional: write a function `hailstorm` such that
 -- `hailstorm i` is the ith number in A006577. You may
 -- need to disable the termination checker.)
+open import Data.Nat.DivMod
 nextHail : ℕ → ℕ
-nextHail = {!!}
+nextHail n with evenOrOdd n
+nextHail n | isEven x = n div 2
+nextHail n | isOdd x = suc (3 * n)
 
 -- Problem 3: Matrix transposition.
 -- Write a series of functions leading up to matrix
@@ -59,12 +68,6 @@ nextHail = {!!}
 Matrix : Set → ℕ → ℕ → Set
 Matrix A m n = Vec (Vec A n) m
 
--- Matrix transposition turns m-by-n matrices into
--- n-by-m matrices. Rows become columns and columns
--- become rows. Here is its signature; we will implement
--- it later.
-transpose : ∀ {A m n} → Matrix A m n → Matrix A n m
-
 -- Problem 3.1:
 -- Define a polymorphic function mapVec that applies
 -- a function on all elements of a vector.
@@ -73,18 +76,21 @@ transpose : ∀ {A m n} → Matrix A m n → Matrix A n m
 --   (2 ∷ 3 ∷ 4 ∷ 5 ∷ [])
 --
 mapVec : ∀ {A B : Set} {n} → (A → B) → Vec A n → Vec B n
-mapVec f xs = {!!}
+mapVec f [] = []
+mapVec f (x ∷ xs) = f x ∷ mapVec f xs
 
 -- Problem 3.2:
 -- Fill a size-n vector with x.
 fill : ∀ {A : Set} → (n : ℕ) → A → Vec A n
-fill n x = {!!}
+fill zero x = []
+fill (suc n) x = x ∷ fill n x
 
 -- Problem 3.3:
 -- Given a vector of functions and vector of arguments,
 -- compute the vector of results.
 pointwiseApp : ∀ {A B : Set} {n} → Vec (A → B) n → Vec A n → Vec B n
-pointwiseApp fs xs = {!!}
+pointwiseApp [] [] = []
+pointwiseApp (f ∷ fs) (x ∷ xs) = f x ∷ pointwiseApp fs xs
 
 -- Problem 3.4:
 -- Implement matrix transposition.
@@ -107,5 +113,23 @@ pointwiseApp fs xs = {!!}
 --
 -- You may need to read the library Data.Fin.
 
--- transpose : ∀ {A m n} → Matrix A m n → Matrix A n m
-transpose xss = {!!}
+-- Matrix transposition turns m-by-n matrices into
+-- n-by-m matrices. Rows become columns and columns
+-- become rows. Here is its signature; we will implement
+-- it later.
+transpose : ∀ {A m n} → Matrix A m n → Matrix A n m
+transpose [] = fill _ []
+transpose (xs ∷ xss) = pointwiseApp (mapVec _∷_ xs) (transpose xss)
+
+open import Data.Fin
+open import Function
+getColumn : ∀ {A m n} → Fin n → Matrix A m n → Vec A m
+getColumn k [] = []
+getColumn k (xs ∷ xss) = (lookup k xs) ∷ (getColumn k xss)
+
+fillN : ∀ {A : Set} → (n : ℕ) → (f : (Fin n) → A) → Vec A n
+fillN zero f = []
+fillN (suc n) f = f (fromℕ n) ∷ fillN n (f ∘ inject₁)
+
+transpose2 : ∀ {A m n} → Matrix A m n → Matrix A n m
+transpose2 {n = n} xss = fillN n $ flip getColumn xss
