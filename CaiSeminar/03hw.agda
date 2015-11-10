@@ -8,7 +8,7 @@ open import Relation.Binary.PropositionalEquality
 open import Data.Product
 
 open import Relation.Nullary
-open import Relation.Nullary.Decidable as Dec
+open import Relation.Nullary.Decidable as Decid
 
 -- Task 1.
 ----------
