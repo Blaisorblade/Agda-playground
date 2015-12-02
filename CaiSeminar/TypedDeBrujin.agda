@@ -1,8 +1,8 @@
 module TypedDeBrujin where
 
-open import Level
+open import Level renaming (suc to lsuc)
 
-record Meaning (Syntax : Set) {ℓ : Level} : Set (suc ℓ) where
+record Meaning (Syntax : Set) {ℓ : Level} : Set (lsuc ℓ) where
   constructor
     meaning
   field
@@ -16,7 +16,7 @@ data Type : Set where
   Int : Type
   _⇒_ : (σ : Type) → (τ : Type) → Type
 
-open import Data.Integer
+open import Data.Integer hiding (_⊔_)
 
 ⟦_⟧Type : Type → Set
 ⟦ Int ⟧Type = ℤ
@@ -26,6 +26,8 @@ instance
   meaningOfType = meaning ⟦_⟧Type
 
 open import Data.List
+  -- using (List; []; _∷_)
+  hiding (drop)
 
 Context : Set
 Context = List Type
@@ -62,3 +64,93 @@ data Term : Context → Type → Set where
 ⟦_⟧Term (var x) ρ = ⟦ x ⟧Var ρ
 ⟦_⟧Term (app s t) ρ = ⟦ s ⟧Term ρ (⟦ t ⟧Term ρ)
 ⟦_⟧Term (lam t) ρ = λ x → ⟦ t ⟧Term (x ∷ ρ)
+
+weakenVar₁ : ∀ {Γ σ τ} → Var Γ τ → Var (σ ∷ Γ) τ
+weakenVar₁ = that
+
+{-
+weakenTerm₁ : ∀ {Γ σ τ} → Term Γ τ → Term (σ ∷ Γ) τ
+weakenTerm₁ (lit x) = lit x
+weakenTerm₁ (var x) = var (weakenVar₁ x)
+weakenTerm₁ (app s t) = app (weakenTerm₁ s) (weakenTerm₁ t)
+weakenTerm₁ (lam t) = lam {!!}
+-}
+
+infix 4 _≼_
+
+data _≼_ : (Γ₁ Γ₂ : Context) → Set where
+  ∅ : [] ≼ []
+  keep : ∀ {Γ₁ Γ₂} →
+    (τ : Type) →
+    Γ₁ ≼ Γ₂ →
+    τ ∷ Γ₁ ≼ τ ∷ Γ₂
+  drop : ∀ {Γ₁ Γ₂} →
+    (τ : Type) →
+    Γ₁ ≼ Γ₂ →
+    Γ₁ ≼ τ ∷ Γ₂
+
+≼-refl : ∀ {Γ} → Γ ≼ Γ
+≼-refl {[]} = ∅
+≼-refl {τ ∷ Γ} = keep τ ≼-refl
+
+≼-trans : ∀ {Γ₁ Γ₂ Γ₃} → Γ₁ ≼ Γ₂ → Γ₂ ≼ Γ₃ → Γ₁ ≼ Γ₃
+≼-trans ≼₁ ∅ = ≼₁
+≼-trans (keep τ ≼₁) (keep .τ ≼₂) = keep τ (≼-trans ≼₁ ≼₂)
+≼-trans (drop τ ≼₁) (keep .τ ≼₂) = drop τ (≼-trans ≼₁ ≼₂)
+≼-trans ≼₁ (drop τ ≼₂) = drop τ (≼-trans ≼₁ ≼₂)
+
+weaken-var-int : ∀ Γ₁ Γ₂ τ → Γ₁ ≼ Γ₂ → Var Γ₁ τ → Var Γ₂ τ
+weaken-var-int (.τ ∷ Γ₁) (.τ ∷ Γ₂) .τ (keep τ Γ≼) this = this
+weaken-var-int ._ (σ ∷ Γ₂) τ (keep .σ Γ≼) (that x) = that (weaken-var-int _ _ _ Γ≼ x)
+weaken-var-int Γ₁ (τ₁ ∷ Γ₂) τ (drop .τ₁ Γ≼) x = that (weaken-var-int _ _ _ Γ≼ x)
+
+weaken-var : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Var Γ₁ τ → Var Γ₂ τ
+weaken-var (keep _ Γ≼) this = this
+weaken-var (keep _ Γ≼) (that x) = that (weaken-var Γ≼ x)
+weaken-var (drop _ Γ≼) x = that (weaken-var Γ≼ x)
+
+weaken-term : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ τ → Term Γ₂ τ
+weaken-term Γ≼ (lit v) = lit v
+weaken-term Γ≼ (var x) = var (weaken-var Γ≼ x)
+weaken-term Γ≼ (app s t) = app (weaken-term Γ≼ s) (weaken-term Γ≼ t)
+weaken-term Γ≼ (lam t) = lam (weaken-term (keep _ Γ≼) t)
+
+{-
+subst : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
+subst Γ≼ s x (lit v) = lit v
+subst Γ≼ s x (app t₁ t₂) = app (subst Γ≼ s x t₁) (subst Γ≼ s x t₂)
+subst Γ≼ s x (lam t) = lam (subst (drop _ Γ≼) s (that x) t)
+-- subst Γ≼ s x (var x₁) with equality... = {!var!}
+subst Γ≼ s this (var this) = weaken-term Γ≼ s
+subst Γ≼ s (that x) (var (that x₁)) = subst ≼-refl (weaken-term Γ≼ s) (that x) (var (that x₁))
+subst Γ≼ s this (var (that x₁)) = var (that x₁)
+subst Γ≼ s (that x) (var this) = var this
+-}
+
+open import Relation.Binary.PropositionalEquality
+open import Relation.Binary.HeterogeneousEquality as H
+open import Relation.Nullary
+
+var-≡? : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Dec (x₁ ≅ x₂)
+var-≡? this this = yes refl
+var-≡? this (that x₂) = no (λ ())
+var-≡? (that x₁) this = no (λ ())
+var-≡? (that x₁) (that x₂) with var-≡? x₁ x₂
+var-≡? (that x₁) (that x₂) | yes p = yes {!H.cong that!}
+var-≡? (that x₁) (that x₂) | no ¬p = no (λ x → {!!})
+
+term-subst-int₂ : ∀ {Γ₂ σ τ} → Term Γ₂ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
+term-subst-int₂ s x (lit v) = lit v
+term-subst-int₂ s x (app t₁ t₂) = app (term-subst-int₂ s x t₁) (term-subst-int₂ s x t₂)
+term-subst-int₂ s x (lam t) = lam (term-subst-int₂ (weaken-term (drop _ ≼-refl) s) (that x) t)
+term-subst-int₂ s x (var x₁) with var-≡? x x₁
+term-subst-int₂ s x (var x₁) | yes p = {!H.subst !}
+term-subst-int₂ s x (var x₁) | no ¬p = {!!}
+{-
+term-subst-int₂ s this (var this) = s
+term-subst-int₂ s this (var (that x₁)) = var (that x₁)
+term-subst-int₂ s (that x) (var this) = var this
+term-subst-int₂ s (that x) (var (that x₁)) = {!!}
+-}
+term-subst₂ : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
+term-subst₂ Γ≼ s x t = term-subst-int₂ (weaken-term Γ≼ s) x t
