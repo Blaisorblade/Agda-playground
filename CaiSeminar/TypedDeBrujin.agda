@@ -160,8 +160,14 @@ term-subst-int s x (lit v) = lit v
 term-subst-int s x (app t₁ t₂) = app (term-subst-int s x t₁) (term-subst-int s x t₂)
 term-subst-int s x (lam t) = lam (term-subst-int (weaken-term (drop _ ≼-refl) s) (that x) t)
 term-subst-int s x (var x₁) with var-≅? x x₁
+-- Failed attempt, but at nonsense
 --term-subst-int s x (var x₁) | yes p = var (H.subst (λ x → x) (induces-types {A = Var _} (λ x → x) p) x)
-term-subst-int s x (var x₁) | yes (σ≡τ , x≅x₁) = var (P.subst (λ x → x) (P.cong (Var _) σ≡τ) x)
+-- Successful nonsense
+--term-subst-int s x (var x₁) | yes (σ≡τ , x≅x₁) = var (P.subst (λ x → x) (P.cong (Var _) σ≡τ) x)
+-- Simpler nonsense
+--term-subst-int s x (var x₁) | yes (refl , x≅x₁) = var x
+-- Correct solution
+term-subst-int s x (var x₁) | yes (refl , x≅x₁) = s
 term-subst-int s x (var x₁) | no ¬p = var x₁
 term-subst : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
 term-subst Γ≼ s x t = term-subst-int (weaken-term Γ≼ s) x t
