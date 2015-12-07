@@ -175,21 +175,21 @@ cong-better : ∀ {c a b} {Z : Set c} {A : Z → Set a} {B : ∀ {z} → A z →
   (f : ∀ {z} → (x : A z) → B x) → x ≅ y → f x ≅ f y
 cong-better refl f refl = refl
 
-var-≡? : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Dec (σ ≡ τ × x₁ ≅ x₂)
-var-≡? this this = yes (refl , refl)
-var-≡? this (that x₂) = no (λ {(σ≡τ , ())})
-var-≡? (that x₁) this = no (λ {(σ≡τ , ())})
-var-≡? (that x₁) (that x₂) with var-≡? x₁ x₂
-var-≡? (that x₁) (that x₂) | yes (σ≡τ , x₁≅x₂) = yes (σ≡τ , cong-better {A = Var _} σ≡τ (λ x → that x) x₁≅x₂)
-var-≡? (that x₁) (that x₂) | no ¬p = no (λ {(σ≡τ , that-x₁≅that-x₂) → ¬p (σ≡τ , injective-that that-x₁≅that-x₂)})
+var-≅? : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Dec (σ ≡ τ × x₁ ≅ x₂)
+var-≅? this this = yes (refl , refl)
+var-≅? this (that x₂) = no (λ {(σ≡τ , ())})
+var-≅? (that x₁) this = no (λ {(σ≡τ , ())})
+var-≅? (that x₁) (that x₂) with var-≅? x₁ x₂
+var-≅? (that x₁) (that x₂) | yes (σ≡τ , x₁≅x₂) = yes (σ≡τ , cong-better {A = Var _} σ≡τ (λ x → that x) x₁≅x₂)
+var-≅? (that x₁) (that x₂) | no ¬p = no (λ {(σ≡τ , that-x₁≅that-x₂) → ¬p (σ≡τ , injective-that that-x₁≅that-x₂)})
 
-term-subst-int₂ : ∀ {Γ₂ σ τ} → Term Γ₂ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
-term-subst-int₂ s x (lit v) = lit v
-term-subst-int₂ s x (app t₁ t₂) = app (term-subst-int₂ s x t₁) (term-subst-int₂ s x t₂)
-term-subst-int₂ s x (lam t) = lam (term-subst-int₂ (weaken-term (drop _ ≼-refl) s) (that x) t)
-term-subst-int₂ s x (var x₁) with var-≡? x x₁
---term-subst-int₂ s x (var x₁) | yes p = var (H.subst (λ x → x) (induces-types {A = Var _} (λ x → x) p) x)
-term-subst-int₂ s x (var x₁) | yes (σ≡τ , x≅x₁) = var (P.subst (λ x → x) (P.cong (Var _) σ≡τ) x)
-term-subst-int₂ s x (var x₁) | no ¬p = var x₁
-term-subst₂ : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
-term-subst₂ Γ≼ s x t = term-subst-int₂ (weaken-term Γ≼ s) x t
+term-subst-int : ∀ {Γ σ τ} → Term Γ σ → Var Γ σ → Term Γ τ → Term Γ τ
+term-subst-int s x (lit v) = lit v
+term-subst-int s x (app t₁ t₂) = app (term-subst-int s x t₁) (term-subst-int s x t₂)
+term-subst-int s x (lam t) = lam (term-subst-int (weaken-term (drop _ ≼-refl) s) (that x) t)
+term-subst-int s x (var x₁) with var-≅? x x₁
+--term-subst-int s x (var x₁) | yes p = var (H.subst (λ x → x) (induces-types {A = Var _} (λ x → x) p) x)
+term-subst-int s x (var x₁) | yes (σ≡τ , x≅x₁) = var (P.subst (λ x → x) (P.cong (Var _) σ≡τ) x)
+term-subst-int s x (var x₁) | no ¬p = var x₁
+term-subst : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
+term-subst Γ≼ s x t = term-subst-int (weaken-term Γ≼ s) x t
