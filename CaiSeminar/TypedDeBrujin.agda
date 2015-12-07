@@ -155,11 +155,16 @@ var-≅? (that x₁) (that x₂) with var-≅? x₁ x₂
 var-≅? (that x₁) (that x₂) | yes (σ≡τ , x₁≅x₂) = yes (σ≡τ , cong-better {A = Var _} σ≡τ (λ x → that x) x₁≅x₂)
 var-≅? (that x₁) (that x₂) | no ¬p = no (λ {(σ≡τ , that-x₁≅that-x₂) → ¬p (σ≡τ , injective-that that-x₁≅that-x₂)})
 
+var-types-≡? : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Maybe (σ ≡ τ)
+var-types-≡? x₁ x₂ with var-≅? x₁ x₂
+... | yes (σ≡τ , x₁≅x₂) = just σ≡τ
+... | no ¬p = nothing
+
 term-subst-int : ∀ {Γ σ τ} → Term Γ σ → Var Γ σ → Term Γ τ → Term Γ τ
 term-subst-int s x (lit v) = lit v
 term-subst-int s x (app t₁ t₂) = app (term-subst-int s x t₁) (term-subst-int s x t₂)
 term-subst-int s x (lam t) = lam (term-subst-int (weaken-term (drop _ ≼-refl) s) (that x) t)
-term-subst-int s x (var x₁) with var-≅? x x₁
+term-subst-int s x (var x₁) with var-types-≡? x x₁
 -- Failed attempt, but at nonsense
 --term-subst-int s x (var x₁) | yes p = var (H.subst (λ x → x) (induces-types {A = Var _} (λ x → x) p) x)
 -- Successful nonsense
@@ -167,7 +172,7 @@ term-subst-int s x (var x₁) with var-≅? x x₁
 -- Simpler nonsense
 --term-subst-int s x (var x₁) | yes (refl , x≅x₁) = var x
 -- Correct solution
-term-subst-int s x (var x₁) | yes (refl , x≅x₁) = s
-term-subst-int s x (var x₁) | no ¬p = var x₁
+term-subst-int s x (var x₁) | just refl = s
+term-subst-int s x (var x₁) | nothing = var x₁
 term-subst : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
 term-subst Γ≼ s x t = term-subst-int (weaken-term Γ≼ s) x t
