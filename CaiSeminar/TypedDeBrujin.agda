@@ -115,17 +115,28 @@ open import Relation.Nullary
 injective-that : ∀ {Γ σ₀ σ τ} {x₁ : Var Γ σ} {x₂ : Var Γ τ} → that {σ₀} x₁ ≅ that {σ₀} x₂ → x₁ ≅ x₂
 injective-that refl = refl
 
+≡→types-≡ : ∀ {ℓ} {A B : Set ℓ} {a : A} {b : B} → a ≅ b → A ≡ B
+≡→types-≡ refl = refl
+
 {-
--- These guys are hard to write.
+-- Can't be written directly by pattern-matching on refl, unification fails. That's interesting.
 induces-types : ∀ {c a b} {Z : Set c} {A : Z → Set a} {B : ∀ {z} → A z → Set b}
   {zx zy} {x : A zx} {y : A zy}
   (f : ∀ {z} → (x : A z) → B x) → x ≅ y → A zx ≅ A zy
-induces-types {x = x} {y = y} f x≅y = {!H.subst !}
+induces-types {x = x} {y = y} f x≅y = {! !}
+-}
 
-cong-better : ∀ {c a b} {Z : Set c} {A : Z → Set a} {B : ∀ {z} → A z → Set b}
+induces-types : ∀ {c a b} {Z : Set c} {A : Z → Set a} {B : ∀ {z} → A z → Set b}
+  {zx zy} {x : A zx} {y : A zy}
+  (f : ∀ {z} → (x : A z) → B x) → x ≅ y → A zx ≡ A zy
+induces-types {x = x} {y = y} f x≅y = ≡→types-≡ x≅y
+
+{-
+-- These guys are hard to write.
+cong-better′ : ∀ {c a b} {Z : Set c} {A : Z → Set a} {B : ∀ {z} → A z → Set b}
   {zx zy} {x : A zx} {y : A zy}
   (f : ∀ {z} → (x : A z) → B x) → x ≅ y → f x ≅ f y
-cong-better f eq = {!eq!}
+cong-better′ f eq = {!eq!}
 
 -- So we can't use this.
 var-≡? : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Dec (x₁ ≅ x₂)
@@ -147,6 +158,7 @@ cong-better : ∀ {c a b} {Z : Set c} {A : Z → Set a} {B : ∀ {z} → A z →
   (f : ∀ {z} → (x : A z) → B x) → x ≅ y → f x ≅ f y
 cong-better refl f refl = refl
 
+-- TODO: go back to only proving that x₁ ≅ x₂, and use ≡→types-≡ for the rest.
 var-≅? : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Dec (σ ≡ τ × x₁ ≅ x₂)
 var-≅? this this = yes (refl , refl)
 var-≅? this (that x₂) = no (λ {(σ≡τ , ())})
@@ -159,6 +171,18 @@ var-types-≡? : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) �
 var-types-≡? x₁ x₂ with var-≅? x₁ x₂
 ... | yes (σ≡τ , x₁≅x₂) = just σ≡τ
 ... | no ¬p = nothing
+
+-- Alternative, non-certifying, implementation of var-types-≡?. If the variables
+-- are equal, this function returns a proof that their types are; but this is
+-- not proved in Agda but only by external reasoning, while above at least we
+-- have an Agda proof for var-≅?, and we could inline var-types-≡?.
+var-types-≡?′ : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Maybe (σ ≡ τ)
+var-types-≡?′ this this = just refl
+var-types-≡?′ this (that x₂) = nothing
+var-types-≡?′ (that x₁) this = nothing
+var-types-≡?′ (that x₁) (that x₂) with var-types-≡?′ x₁ x₂
+var-types-≡?′ (that x₁) (that x₂) | just σ≡τ = just σ≡τ
+var-types-≡?′ (that x₁) (that x₂) | nothing = nothing
 
 term-subst-int : ∀ {Γ σ τ} → Term Γ σ → Var Γ σ → Term Γ τ → Term Γ τ
 term-subst-int s x (lit v) = lit v
