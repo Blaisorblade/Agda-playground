@@ -1,33 +1,14 @@
 module TypedDeBrujin where
 
-open import Level renaming (suc to lsuc)
-
-{-
-record Meaning (Syntax : Set) {ℓ : Level} : Set (lsuc ℓ) where
-  constructor
-    meaning
-  field
-    {Semantics} : Set ℓ
-    ⟨_⟩⟦_⟧ : Syntax → Semantics
-
-open Meaning {{...}} public
-  renaming (⟨_⟩⟦_⟧ to ⟦_⟧)
--}
-
 data Type : Set where
   Int : Type
   _⇒_ : (σ : Type) → (τ : Type) → Type
 
-open import Data.Integer hiding (_⊔_)
+open import Data.Integer
 
 ⟦_⟧Type : Type → Set
 ⟦ Int ⟧Type = ℤ
 ⟦ σ ⇒ τ ⟧Type = ⟦ σ ⟧Type → ⟦ τ ⟧Type
-
-{-
-instance
-  meaningOfType = meaning ⟦_⟧Type
--}
 
 open import Data.List
   -- using (List; []; _∷_)
@@ -38,14 +19,9 @@ Context = List Type
 
 open import Data.List.All public
   renaming
-    ( All to DependentList )
+    ( All to HList )
 
-⟦_⟧Context = DependentList ⟦_⟧Type
-
-{-
-instance
-  meaningOfContext = meaning ⟦_⟧Context
--}
+⟦_⟧Context = HList ⟦_⟧Type
 
 data Var : Context → Type → Set where
   this : ∀ {τ Γ} → Var (τ ∷ Γ) τ
@@ -54,12 +30,6 @@ data Var : Context → Type → Set where
 ⟦_⟧Var : ∀ {Γ τ} → Var Γ τ → ⟦ Γ ⟧Context → ⟦ τ ⟧Type
 ⟦ this ⟧Var   (px ∷ ρ) = px
 ⟦ that v ⟧Var (px ∷ ρ) = ⟦ v ⟧Var ρ
-
-{-
-instance
-  meaningOfVar : ∀ {Γ τ} → Meaning (Var Γ τ)
-  meaningOfVar = meaning ⟦_⟧Var
--}
 
 data Term : Context → Type → Set where
   lit : ∀ {Γ} → ℤ → Term Γ Int
@@ -76,6 +46,7 @@ data Term : Context → Type → Set where
 weakenVar₁ : ∀ {Γ σ τ} → Var Γ τ → Var (σ ∷ Γ) τ
 weakenVar₁ = that
 
+-- Failed attempt
 {-
 weakenTerm₁ : ∀ {Γ σ τ} → Term Γ τ → Term (σ ∷ Γ) τ
 weakenTerm₁ (lit x) = lit x
@@ -123,6 +94,7 @@ weaken-term Γ≼ (var x) = var (weaken-var Γ≼ x)
 weaken-term Γ≼ (app s t) = app (weaken-term Γ≼ s) (weaken-term Γ≼ t)
 weaken-term Γ≼ (lam t) = lam (weaken-term (keep _ Γ≼) t)
 
+-- Bundling variable comparison in the same function doesn't work well.
 {-
 subst : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ σ → Var Γ₂ σ → Term Γ₂ τ → Term Γ₂ τ
 subst Γ≼ s x (lit v) = lit v
