@@ -1,7 +1,7 @@
 -- Implement simply-typed lambda calculus (STLC) using typed de Brujin indexes,
 -- also as a case study in dependent pattern matching.
 
-module TypedDeBrujinAgain where
+module TypedDeBrujin where
 
 infixr 6 _⇒_
 
