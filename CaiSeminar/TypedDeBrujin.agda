@@ -185,32 +185,21 @@ when checking that the expression ? has type Maybe (.σ ≡ .τ)
 -}
 -}
 
-lemma : ∀ {Γ σ τ} → {x₁ : Var Γ σ} → {x₂ : Var Γ τ} → x₁ ≅ x₂ → σ ≡ τ
+Var-Γ-injective : ∀ {σ τ Γ} → {x₁ : Var Γ σ} → {x₂ : Var Γ τ} → x₁ ≅ x₂ → σ ≡ τ
 -- Requires --injective-type-constructors
---lemma refl = refl
---lemma x₁≅x₂ = {!≡→types-≡ x₁≅x₂!}
+--Var-Γ-injective refl = refl
+--Var-Γ-injective x₁≅x₂ = {!≡→types-≡ x₁≅x₂!}
 
-lemma x₁≅x₂ with ≡→types-≡ x₁≅x₂
-... | p = {!p !}
---lemma x₁≅x₂ |  = {!!}
-
--- Here τ is a parameter, yet unification refuses to unify it.
-data Var′ (τ : Type) : Context → Set where
-  this′ : ∀ {Γ} → Var′ τ (τ ∷ Γ)
-  that′ : ∀ {σ Γ} → Var′ τ Γ → Var′ τ (σ ∷ Γ)
-
-lemma′ : ∀ {Γ σ τ} → {x₁ : Var′ σ Γ} → {x₂ : Var′ τ Γ} → x₁ ≅ x₂ → σ ≡ τ
---lemma′ x₁≅x₂ = {!!}
--- Requires --injective-type-constructors
---lemma′ refl = refl
-lemma′ x₁≅x₂ with ≡→types-≡ x₁≅x₂
-... | p = {!x₁≅x₂ p!}
-
+Var-Γ-injective {Γ = Γ} {x₁} {x₂} x₁≅x₂ with ≡→types-≡ x₁≅x₂
+Var-Γ-injective {σ} {.σ} {.σ ∷ Γ} {this} {this} refl | _ = refl
+Var-Γ-injective {σ} {τ} {.σ ∷ Γ} {this} {that x₂} () | p
+Var-Γ-injective {σ} {τ} {.τ ∷ Γ} {that x₁} {this} () | p
+Var-Γ-injective {σ} {.σ} {σ₁ ∷ Γ} {that x₁} {that .x₁} refl | p = refl
 
 var-types-≡? : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Maybe (σ ≡ τ)
 var-types-≡? x₁ x₂ with var-≅? x₁ x₂
 ... | no ¬p = nothing
-... | yes (σ≡τ , x₁≅x₂) = just (lemma x₁≅x₂)
+... | yes (σ≡τ , x₁≅x₂) = just (Var-Γ-injective x₁≅x₂)
 
 -- Alternative, non-certifying, implementation of var-types-≡?. If the variables
 -- are equal, this function returns a proof that their types are; but this is
