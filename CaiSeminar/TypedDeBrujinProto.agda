@@ -1,5 +1,5 @@
 --{-# OPTIONS --injective-type-constructors #-}
-module TypedDeBrujin where
+module TypedDeBrujinProto where
 
 data Type : Set where
   Int : Type
