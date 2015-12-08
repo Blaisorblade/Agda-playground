@@ -18,7 +18,7 @@ open import Data.List
 Context : Set
 Context = List Type
 
-open import Data.List.All public
+open import Data.List.All
   renaming
     ( All to HList )
 
@@ -186,7 +186,7 @@ when checking that the expression ? has type Maybe (.σ ≡ .τ)
 -}
 
 Var-Γ-injective : ∀ {σ τ Γ} → {x₁ : Var Γ σ} → {x₂ : Var Γ τ} → x₁ ≅ x₂ → σ ≡ τ
--- Requires --injective-type-constructors
+-- Requires the unsound --injective-type-constructors
 --Var-Γ-injective refl = refl
 --Var-Γ-injective x₁≅x₂ = {!≡→types-≡ x₁≅x₂!}
 
