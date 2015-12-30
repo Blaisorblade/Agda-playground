@@ -13,7 +13,29 @@ open import Data.Nat
 
 -- Step-Indexed Partiality Monad
 --
--- Inspired (probably identical) to Rompf and Anin's arXiv:1510.05216v1.
+-- Inspired and very close to Rompf and Amin's arXiv:1510.05216v1. However, here
+-- I keep using typed deBrujin indexes to only represent well-scoped terms. As a
+-- consequence, variable lookup here never fails.
+--
+-- Moreover, we only formalize Church-style terms, by defining the Agda type of
+-- well-typed STLC terms. Hence our evaluator never need produce errors:
+-- well-typedness is visible to Agda thanks to its support for dependent pattern
+-- matching, so we needn't handle applying a non-function.
+--
+-- Hence, for the current evaluator we could even drop the Error case, or prove
+-- as a boring lemma that we never produce an error value.
+--
+-- It is not clear how convenient this would be for Rompf and Amin, first
+-- because they are using Coq's more limited support for pattern matching (a
+-- problem which might be solvable through the Equations package), second
+-- because they are formalizing much more interesting object languages — several
+-- variants of DOT feature undecidable type checking.
+
+-- Like them, environment contain only actual values, without any wrapping with
+-- Result, PartialResult or Partial, since this is an actual CBV evaluator.
+
+-- Represent possible error values. Here we choose to use distinct (but
+-- isomorphic) types instead of reusing Maybe.
 data Result (τ : Set) : Set where
   Error : Result τ
   Val : τ → Result τ
@@ -23,20 +45,34 @@ data PartialResult (τ : Set) : Set where
   Done : Result τ →  PartialResult τ
 
 -- Needed implementations of monadic bind and return.
--- I'm sure we could overload _>>=_ and return.
+-- I'm sure we could overload _>>=_ and return instead.
 _bindPartialResult_ : ∀ {σ τ} → PartialResult σ → (σ → PartialResult τ) → PartialResult τ
 _bindPartialResult_ Timeout f = Timeout
 _bindPartialResult_ (Done Error) f = Done Error
 _bindPartialResult_ (Done (Val x)) f = f x
 
-open import Function
+-- Here we use a Reader monad for the fuel, as done by Amin and Rompf. However,
+-- ⟦_⟧Term must decrease fuel by hand; to define an operation of type
+-- `consumeFuel : Partial ⊤`, we'd have to use a State monad.
+--
+-- However, currently we also need to inline fuel decreasing because otherwise
+-- ⟦_⟧Term fails termination checking, so we'd first need to check if we can fix
+-- that through sized types, and if the fix keeps working using the State monad.
+-- In particular, while the Reader monad is "too small", since it doesn't
+-- include consumeFuel, the State monad is "too big", since it also includes
+-- "invalid" computation that increase the amount of fuel.
 Partial : Set → Set
 Partial τ = (fuel : ℕ) → (PartialResult τ)
 
 returnPartial : ∀ {t} → t → Partial t
 returnPartial v = λ fuel → Done (Val v)
 
--- Values are CBV function spaces
+-- Values are CBV function spaces.
+
+-- Our function values are isomorphic to Amin and Rompf; they represent
+-- functions through object-level closures, to be recursively evaluated when
+-- evaluating applications; they are linked through defunctionalization and
+-- refunctionalization.
 ⟦_⟧Type : Type → Set
 ⟦ Nat ⟧Type  = ℕ
 ⟦ σ ⇒ τ ⟧Type = ⟦ σ ⟧Type → Partial (⟦ τ ⟧Type)
@@ -98,8 +134,14 @@ data Term : Context → Type → Set where
 doEval : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → Partial (⟦ τ ⟧Type)
 ⟦_⟧Term : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → Partial (⟦ τ ⟧Type)
 
+-- The actual core of the evaluator. Compare ⟦_⟧Term with eval in Fig. 2 of Amin
+-- and Rompf.
 doEval (lit v) ρ fuel = Done (Val v)
+-- Amin and Rompf here don't wrap the result in Val, even though the environment
+-- doesn't contain Result; the reason is that their environment lookup can fail.
 doEval (var x) ρ fuel = Done (Val (⟦ x ⟧Var ρ))
+-- When evaluating applications we need not check that the result value is of
+-- the right shape, since we deal with well-typed terms.
 doEval (app s t) ρ fuel = (⟦ s ⟧Term ρ fuel) bindPartialResult (λ f →
   ⟦ t ⟧Term ρ fuel bindPartialResult (λ v →
     f v fuel))
@@ -113,7 +155,8 @@ doEval (lam t) ρ fuel = Done (Val (λ v → ⟦ t ⟧Term (v ∷ ρ)))
 doEval (fix t) ρ fuel = (⟦ fix t ⟧Term ρ fuel) bindPartialResult (λ v →
   ⟦ t ⟧Term (v ∷ ρ) fuel)
 
--- inline this to pass termination checking:
+-- Before pattern-matching on the term to evaluate, check if enough fuel is
+-- left. Fig. 2 abstracts this away with code like:
 {-
 checkFuel : Partial ℕ
 checkFuel zero = Timeout
@@ -121,18 +164,13 @@ checkFuel (suc fuel) = Done (Val fuel)
 
 ⟦_⟧Term t ρ fuel = (checkFuel fuel) bindPartialResult (doEval t ρ)
 -}
-
+-- However, such code is in fact defined as macros to be inlined before
+-- termination checking. Even with Agda's termination checking, we need to do
+-- this inlining by hand:
 ⟦_⟧Term t ρ zero = Timeout
 ⟦_⟧Term t ρ (suc fuel) = doEval t ρ fuel
+-- Sized types might help.
 
-
-{-
-⟦_⟧Term (lit v) ρ = {! }Done v
-⟦_⟧Term (var x) ρ = Done (⟦ x ⟧Var ρ)
-⟦_⟧Term (app s t) ρ = {! ⟦ s ⟧Term ρ (⟦ t ⟧Term ρ) !}
-⟦_⟧Term (lam t) ρ = {! λ v → ⟦ t ⟧Term (v ∷ ρ) !}
-⟦_⟧Term (fix t) ρ = {!!}
--}
 -- Examples
 idNat : Term [] (Nat ⇒ Nat)
 idNat = lam (var this)
