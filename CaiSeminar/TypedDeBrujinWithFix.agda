@@ -95,7 +95,6 @@ data Term : Context → Type → Set where
   lam : ∀ {σ τ Γ} → Term (σ ∷ Γ) τ → Term Γ (σ ⇒ τ)
   fix : ∀ {τ Γ} → Term (τ ∷ Γ) τ → Term Γ τ
 
-{-# TERMINATING #-}
 doEval : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → Partial (⟦ τ ⟧Type)
 ⟦_⟧Term : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → Partial (⟦ τ ⟧Type)
 
@@ -114,26 +113,17 @@ doEval (lam t) ρ fuel = Done (Val (λ v → ⟦ t ⟧Term (v ∷ ρ)))
 doEval (fix t) ρ fuel = (⟦ fix t ⟧Term ρ fuel) bindPartialResult (λ v →
   ⟦ t ⟧Term (v ∷ ρ) fuel)
 
-open import Data.Unit
-
+-- inline this to pass termination checking:
+{-
 checkFuel : Partial ℕ
 checkFuel zero = Timeout
 checkFuel (suc fuel) = Done (Val fuel)
 
 ⟦_⟧Term t ρ fuel = (checkFuel fuel) bindPartialResult (doEval t ρ)
-
--- inline this to pass termination checking:
-{-
-checkFuel : ∀ {τ} → Partial τ → Partial τ
-checkFuel res zero = Timeout
-checkFuel res (suc fuel) = res fuel
-
-⟦_⟧Term t ρ = checkFuel (doEval t ρ)
+-}
 
 ⟦_⟧Term t ρ zero = Timeout
 ⟦_⟧Term t ρ (suc fuel) = doEval t ρ fuel
-
--}
 
 
 {-
