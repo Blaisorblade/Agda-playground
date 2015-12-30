@@ -203,103 +203,105 @@ weakenTerm₁ (app s t) = app (weakenTerm₁ s) (weakenTerm₁ t)
 weakenTerm₁ (lam t) = lam {!!}
 -}
 
--- -- Let's generalize weakening, so that we can weaken a term to any bigger context.
--- -- So first let's define "bigger context".
+-- Let's generalize weakening, so that we can weaken a term to any bigger context.
+-- So first let's define "bigger context".
 
--- infix 4 _≼_
--- data _≼_ : (Γ₁ Γ₂ : Context) → Set where
---   ∅ : [] ≼ []
---   keep : ∀ {Γ₁ Γ₂} → (τ : Type) →
---          Γ₁ ≼ Γ₂ →
---          (τ ∷ Γ₁) ≼ (τ ∷ Γ₂)
---   drop : ∀ {Γ₁ Γ₂} → (τ : Type) →
---          Γ₁ ≼ Γ₂ →
---          Γ₁ ≼ (τ ∷ Γ₂)
+infix 4 _≼_
+data _≼_ : (Γ₁ Γ₂ : Context) → Set where
+  ∅ : [] ≼ []
+  keep : ∀ {Γ₁ Γ₂} → (τ : Type) →
+         Γ₁ ≼ Γ₂ →
+         (τ ∷ Γ₁) ≼ (τ ∷ Γ₂)
+  drop : ∀ {Γ₁ Γ₂} → (τ : Type) →
+         Γ₁ ≼ Γ₂ →
+         Γ₁ ≼ (τ ∷ Γ₂)
 
--- -- Now weakening works.
--- weaken-var : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Var Γ₁ τ → Var Γ₂ τ
--- weaken-var (keep τ Γ₁≼Γ₂) this = this
--- weaken-var (keep σ Γ₁≼Γ₂) (that x) = that (weaken-var Γ₁≼Γ₂ x)
--- weaken-var (drop τ₁ Γ₁≼Γ₂) x = that (weaken-var Γ₁≼Γ₂ x)
+-- Now weakening works.
+weaken-var : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Var Γ₁ τ → Var Γ₂ τ
+weaken-var (keep τ Γ₁≼Γ₂) this = this
+weaken-var (keep σ Γ₁≼Γ₂) (that x) = that (weaken-var Γ₁≼Γ₂ x)
+weaken-var (drop τ₁ Γ₁≼Γ₂) x = that (weaken-var Γ₁≼Γ₂ x)
 
--- weaken-term : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ τ → Term Γ₂ τ
--- weaken-term Γ₁≼Γ₂ (lit v) = lit v
--- weaken-term Γ₁≼Γ₂ (var x) = var (weaken-var Γ₁≼Γ₂ x)
--- weaken-term Γ₁≼Γ₂ (app s t) = app (weaken-term Γ₁≼Γ₂ s) (weaken-term Γ₁≼Γ₂ t)
--- weaken-term Γ₁≼Γ₂ (lam t) = lam (weaken-term (keep _ Γ₁≼Γ₂) t)
+weaken-term : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ τ → Term Γ₂ τ
+weaken-term Γ₁≼Γ₂ (lit v) = lit v
+weaken-term Γ₁≼Γ₂ (var x) = var (weaken-var Γ₁≼Γ₂ x)
+weaken-term Γ₁≼Γ₂ (app s t) = app (weaken-term Γ₁≼Γ₂ s) (weaken-term Γ₁≼Γ₂ t)
+weaken-term Γ₁≼Γ₂ (lam t) = lam (weaken-term (keep _ Γ₁≼Γ₂) t)
+weaken-term Γ₁≼Γ₂ (fix t) = fix (weaken-term (keep _ Γ₁≼Γ₂) t)
 
--- -- Weakening is needed for various term transformations. As a motivating
--- -- example, let's implement substitution, term-subst, even though it's not
--- -- needed for evaluation.
+-- Weakening is needed for various term transformations. As a motivating
+-- example, let's implement substitution, term-subst, even though it's not
+-- needed for evaluation.
 
--- -- We need lots of utilities first; in particular, we
--- -- need to compare variables. If two variables match, we need to deduce that
--- -- they have the same STLC type (through lemma-var-≅→types), so that
--- -- substitution preserves STLC typing.
+-- We need lots of utilities first; in particular, we
+-- need to compare variables. If two variables match, we need to deduce that
+-- they have the same STLC type (through lemma-var-≅→types), so that
+-- substitution preserves STLC typing.
 
--- -- Let's first implement *decision procedures* for equality.
+-- Let's first implement *decision procedures* for equality.
 
--- open import Relation.Nullary
+open import Relation.Nullary
 
--- -- Let's start from equality on numbers.
--- exercise-nat-≟ : (a b : ℕ) → Dec (a ≡ b)
--- exercise-nat-≟ zero zero = yes refl
--- exercise-nat-≟ zero (suc b) = no (λ ())
--- exercise-nat-≟ (suc a) zero = no (λ ())
--- exercise-nat-≟ (suc a) (suc b) with exercise-nat-≟ a b
--- exercise-nat-≟ (suc a) (suc .a) | yes refl = yes refl
--- exercise-nat-≟ (suc a) (suc b)  | no ¬p = no (λ suc-a≡suc-b → ¬p (P.cong pred suc-a≡suc-b))
+-- Let's start from equality on numbers.
+exercise-nat-≟ : (a b : ℕ) → Dec (a ≡ b)
+exercise-nat-≟ zero zero = yes refl
+exercise-nat-≟ zero (suc b) = no (λ ())
+exercise-nat-≟ (suc a) zero = no (λ ())
+exercise-nat-≟ (suc a) (suc b) with exercise-nat-≟ a b
+exercise-nat-≟ (suc a) (suc .a) | yes refl = yes refl
+exercise-nat-≟ (suc a) (suc b)  | no ¬p = no (λ suc-a≡suc-b → ¬p (P.cong pred suc-a≡suc-b))
 
--- -- This lemma witnesses that the data constructor `that` is injective.
--- exercise-lemma-that-injective-≡ : ∀ {Γ σ τ} {x₁ : Var Γ τ} {x₂ : Var Γ τ} → that {σ} x₁ ≡ that {σ} x₂ → x₁ ≡ x₂
--- exercise-lemma-that-injective-≡ refl = refl
+-- This lemma witnesses that the data constructor `that` is injective.
+exercise-lemma-that-injective-≡ : ∀ {Γ σ τ} {x₁ : Var Γ τ} {x₂ : Var Γ τ} → that {σ} x₁ ≡ that {σ} x₂ → x₁ ≡ x₂
+exercise-lemma-that-injective-≡ refl = refl
 
--- -- A decision procedure for heterogeneous variable equality. This is designed
--- -- for what we need in substitution, so doesn't compare variables across
--- -- contexts --- that would not be a well-defined operation anyway.
--- exercise-var-≟ : ∀ {Γ τ} → (x₁ : Var τ Γ) → (x₂ : Var τ Γ) → Dec (x₁ ≡ x₂)
--- exercise-var-≟ this this = yes refl
--- exercise-var-≟ this (that x₂) = no (λ ())
--- exercise-var-≟ (that x₁) this = no (λ ())
--- exercise-var-≟ (that x₁) (that x₂) with exercise-var-≟ x₁ x₂
--- exercise-var-≟ (that x₁) (that x₂) | yes x₁≡x₂ = yes (P.cong that x₁≡x₂)
--- exercise-var-≟ (that x₁) (that x₂) | no ¬x₁≡x₂ = no (λ that-x₁≡that-x₂ → ¬x₁≡x₂ (exercise-lemma-that-injective-≡ that-x₁≡that-x₂))
+-- A decision procedure for heterogeneous variable equality. This is designed
+-- for what we need in substitution, so doesn't compare variables across
+-- contexts --- that would not be a well-defined operation anyway.
+exercise-var-≟ : ∀ {Γ τ} → (x₁ : Var τ Γ) → (x₂ : Var τ Γ) → Dec (x₁ ≡ x₂)
+exercise-var-≟ this this = yes refl
+exercise-var-≟ this (that x₂) = no (λ ())
+exercise-var-≟ (that x₁) this = no (λ ())
+exercise-var-≟ (that x₁) (that x₂) with exercise-var-≟ x₁ x₂
+exercise-var-≟ (that x₁) (that x₂) | yes x₁≡x₂ = yes (P.cong that x₁≡x₂)
+exercise-var-≟ (that x₁) (that x₂) | no ¬x₁≡x₂ = no (λ that-x₁≡that-x₂ → ¬x₁≡x₂ (exercise-lemma-that-injective-≡ that-x₁≡that-x₂))
 
--- open import Relation.Binary.HeterogeneousEquality as H
+open import Relation.Binary.HeterogeneousEquality as H
 
--- -- Inspired from answers to http://stackoverflow.com/q/24139810/53974. The
--- -- standard H.cong is not flexible enough. This probably belongs in the standard
--- -- library.
--- hcong : ∀ {a b c} {A : Set a} {B : A → Set b} {C : ∀ {x} → B x → Set c}
---       {ax ay} {x : B ax} {y : B ay} (f : ∀ {z} (x : B z) → C x) →
---       ax ≡ ay →
---       x ≅ y → f x ≅ f y
--- hcong f refl refl = refl
+-- Inspired from answers to http://stackoverflow.com/q/24139810/53974. The
+-- standard H.cong is not flexible enough. This probably belongs in the standard
+-- library.
+hcong : ∀ {a b c} {A : Set a} {B : A → Set b} {C : ∀ {x} → B x → Set c}
+      {ax ay} {x : B ax} {y : B ay} (f : ∀ {z} (x : B z) → C x) →
+      ax ≡ ay →
+      x ≅ y → f x ≅ f y
+hcong f refl refl = refl
 
--- -- Only works if τ is an index of Var, not a parameter O_O.
--- lemma-that-injective-≅ : ∀ {Γ σ₀ σ τ} {x₁ : Var Γ σ} {x₂ : Var Γ τ} → that {σ₀} x₁ ≅ that {σ₀} x₂ → x₁ ≅ x₂
--- lemma-that-injective-≅ refl = refl
+-- Only works if τ is an index of Var, not a parameter O_O.
+lemma-that-injective-≅ : ∀ {Γ σ₀ σ τ} {x₁ : Var Γ σ} {x₂ : Var Γ τ} → that {σ₀} x₁ ≅ that {σ₀} x₂ → x₁ ≅ x₂
+lemma-that-injective-≅ refl = refl
 
--- -- Prove that the *type constructor* Var Γ is injective: if x₁ ≅ x₂, they're in
--- -- the same type, so Var Γ σ ≡ Var Γ τ. Hence, σ ≡ τ.
--- lemma-var-≅→types : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → x₁ ≅ x₂ → σ ≡ τ
--- lemma-var-≅→types this this x₁≅x₂ = refl
--- lemma-var-≅→types (that x₁) (that .x₁) refl = refl
--- lemma-var-≅→types this (that x₂) ()
--- lemma-var-≅→types (that x₁) this ()
+-- Prove that the *type constructor* Var Γ is injective: if x₁ ≅ x₂, they're in
+-- the same type, so Var Γ σ ≡ Var Γ τ. Hence, σ ≡ τ.
+lemma-var-≅→types : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → x₁ ≅ x₂ → σ ≡ τ
+lemma-var-≅→types this this x₁≅x₂ = refl
+lemma-var-≅→types (that x₁) (that .x₁) refl = refl
+lemma-var-≅→types this (that x₂) ()
+lemma-var-≅→types (that x₁) this ()
 
--- var-≅ : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Dec (x₁ ≅ x₂)
--- var-≅ this this = yes refl
--- var-≅ this (that x₂) = no (λ ())
--- var-≅ (that x₁) this = no (λ ())
--- var-≅ (that x₁) (that x₂) with var-≅ x₁ x₂
--- var-≅ (that x₁) (that x₂) | yes x₁≅x₂ = yes (hcong that (lemma-var-≅→types x₁ x₂ x₁≅x₂) x₁≅x₂)
--- var-≅ (that x₁) (that x₂) | no ¬x₁≅x₂ = no (λ that-x₁≅that-x₂ → ¬x₁≅x₂ (lemma-that-injective-≅ that-x₁≅that-x₂))
+var-≅ : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Dec (x₁ ≅ x₂)
+var-≅ this this = yes refl
+var-≅ this (that x₂) = no (λ ())
+var-≅ (that x₁) this = no (λ ())
+var-≅ (that x₁) (that x₂) with var-≅ x₁ x₂
+var-≅ (that x₁) (that x₂) | yes x₁≅x₂ = yes (hcong that (lemma-var-≅→types x₁ x₂ x₁≅x₂) x₁≅x₂)
+var-≅ (that x₁) (that x₂) | no ¬x₁≅x₂ = no (λ that-x₁≅that-x₂ → ¬x₁≅x₂ (lemma-that-injective-≅ that-x₁≅that-x₂))
 
--- term-subst : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Var Γ₂ σ → Term Γ₁ σ → Term Γ₂ τ → Term Γ₂ τ
--- term-subst Γ₁≼Γ₂ x to-subst (lit v) = lit v
--- term-subst Γ₁≼Γ₂ x to-subst (app s t) = app (term-subst Γ₁≼Γ₂ x to-subst s) (term-subst Γ₁≼Γ₂ x to-subst t)
--- term-subst Γ₁≼Γ₂ x to-subst (lam t) = lam (term-subst (drop _ Γ₁≼Γ₂) (that x) to-subst t)
--- term-subst Γ₁≼Γ₂ x to-subst (var x₁) with var-≅ x x₁
--- term-subst Γ₁≼Γ₂ x to-subst (var x₁) | yes p = weaken-term Γ₁≼Γ₂ (P.subst (Term _) (lemma-var-≅→types _ _ p) to-subst)
--- term-subst Γ₁≼Γ₂ x to-subst (var x₁) | no ¬p = var x₁
+term-subst : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Var Γ₂ σ → Term Γ₁ σ → Term Γ₂ τ → Term Γ₂ τ
+term-subst Γ₁≼Γ₂ x to-subst (lit v) = lit v
+term-subst Γ₁≼Γ₂ x to-subst (app s t) = app (term-subst Γ₁≼Γ₂ x to-subst s) (term-subst Γ₁≼Γ₂ x to-subst t)
+term-subst Γ₁≼Γ₂ x to-subst (lam t) = lam (term-subst (drop _ Γ₁≼Γ₂) (that x) to-subst t)
+term-subst Γ₁≼Γ₂ x to-subst (fix t) = fix (term-subst (drop _ Γ₁≼Γ₂) (that x) to-subst t)
+term-subst Γ₁≼Γ₂ x to-subst (var x₁) with var-≅ x x₁
+term-subst Γ₁≼Γ₂ x to-subst (var x₁) | yes p = weaken-term Γ₁≼Γ₂ (P.subst (Term _) (lemma-var-≅→types _ _ p) to-subst)
+term-subst Γ₁≼Γ₂ x to-subst (var x₁) | no ¬p = var x₁
