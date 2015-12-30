@@ -95,23 +95,32 @@ data Term : Context → Type → Set where
   lam : ∀ {σ τ Γ} → Term (σ ∷ Γ) τ → Term Γ (σ ⇒ τ)
   fix : ∀ {τ Γ} → Term (τ ∷ Γ) τ → Term Γ τ
 
-eval : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → Partial (⟦ τ ⟧Type)
+{-# TERMINATING #-}
+doEval : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → Partial (⟦ τ ⟧Type)
 ⟦_⟧Term : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → Partial (⟦ τ ⟧Type)
 
-eval (lit v) ρ fuel = Done (Val v)
-eval (var x) ρ fuel = Done (Val (⟦ x ⟧Var ρ))
-eval (app s t) ρ fuel = (⟦ s ⟧Term ρ fuel) bindPartialResult (λ f →
+doEval (lit v) ρ fuel = Done (Val v)
+doEval (var x) ρ fuel = Done (Val (⟦ x ⟧Var ρ))
+doEval (app s t) ρ fuel = (⟦ s ⟧Term ρ fuel) bindPartialResult (λ f →
   ⟦ t ⟧Term ρ fuel bindPartialResult (λ v →
     f v fuel))
-eval (lam t) ρ fuel = Done (Val (λ v → ⟦ t ⟧Term (v ∷ ρ)))
+doEval (lam t) ρ fuel = Done (Val (λ v → ⟦ t ⟧Term (v ∷ ρ)))
 
 -- This definition is theoretically correct, but does not have the correct
 -- operational behavior (and wouldn't have the right cost in a cost monad). In
 -- particular, if t is not a lambda abstraction, it executes fuel steps of the
 -- fixpoint in a potentially eager way, even when many fewer are needed.
 -- Since fuel can be arbitrarily big, this induces an arbitrary slowdown.
-eval (fix t) ρ fuel = (⟦ fix t ⟧Term ρ fuel) bindPartialResult (λ v →
+doEval (fix t) ρ fuel = (⟦ fix t ⟧Term ρ fuel) bindPartialResult (λ v →
   ⟦ t ⟧Term (v ∷ ρ) fuel)
+
+open import Data.Unit
+
+checkFuel : Partial ℕ
+checkFuel zero = Timeout
+checkFuel (suc fuel) = Done (Val fuel)
+
+⟦_⟧Term t ρ fuel = (checkFuel fuel) bindPartialResult (doEval t ρ)
 
 -- inline this to pass termination checking:
 {-
@@ -119,11 +128,13 @@ checkFuel : ∀ {τ} → Partial τ → Partial τ
 checkFuel res zero = Timeout
 checkFuel res (suc fuel) = res fuel
 
-⟦_⟧Term t ρ = checkFuel (eval t ρ)
--}
+⟦_⟧Term t ρ = checkFuel (doEval t ρ)
 
 ⟦_⟧Term t ρ zero = Timeout
-⟦_⟧Term t ρ (suc fuel) = eval t ρ fuel
+⟦_⟧Term t ρ (suc fuel) = doEval t ρ fuel
+
+-}
+
 
 {-
 ⟦_⟧Term (lit v) ρ = {! }Done v
