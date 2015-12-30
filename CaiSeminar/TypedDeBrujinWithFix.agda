@@ -22,22 +22,24 @@ data PartialResult (τ : Set) : Set where
   Timeout : PartialResult τ
   Done : Result τ →  PartialResult τ
 
-_bindPartial_ : ∀ {σ τ} → PartialResult σ → (σ → PartialResult τ) → PartialResult τ
-_bindPartial_ Timeout f = Timeout
-_bindPartial_ (Done Error) f = Done Error
-_bindPartial_ (Done (Val x)) f = f x
+-- Needed implementations of monadic bind and return.
+-- I'm sure we could overload _>>=_ and return.
+_bindPartialResult_ : ∀ {σ τ} → PartialResult σ → (σ → PartialResult τ) → PartialResult τ
+_bindPartialResult_ Timeout f = Timeout
+_bindPartialResult_ (Done Error) f = Done Error
+_bindPartialResult_ (Done (Val x)) f = f x
 
 open import Function
 Partial : Set → Set
 Partial τ = (fuel : ℕ) → (PartialResult τ)
 
-checkFuel : ∀ {τ} → Partial τ → Partial τ
-checkFuel res zero = Timeout
-checkFuel res (suc fuel) = res fuel
+returnPartial : ∀ {t} → t → Partial t
+returnPartial v = λ fuel → Done (Val v)
 
+-- Values are CBV function spaces
 ⟦_⟧Type : Type → Set
-⟦ Nat ⟧Type = ℕ
-⟦ σ ⇒ τ ⟧Type = ⟦ σ ⟧Type → ⟦ τ ⟧Type
+⟦ Nat ⟧Type  = ℕ
+⟦ σ ⇒ τ ⟧Type = ⟦ σ ⟧Type → Partial (⟦ τ ⟧Type)
 
 open import Data.List hiding (drop)
 
@@ -63,7 +65,7 @@ example : ⟦ exampleΓ ⟧Context ≡ HList ⟦_⟧Type exampleΓ
 example = refl
 
 anHList : HList ⟦_⟧Type exampleΓ
-anHList = 42 ∷ (λ z → z) ∷ []
+anHList = 42 ∷ (λ z → returnPartial z) ∷ []
 
 exampleEnv  : ⟦ exampleΓ ⟧Context
 exampleEnv = anHList
@@ -98,12 +100,30 @@ eval : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → Partial (⟦ τ ⟧T
 
 eval (lit v) ρ fuel = Done (Val v)
 eval (var x) ρ fuel = Done (Val (⟦ x ⟧Var ρ))
-eval (app s t) ρ fuel = (⟦ s ⟧Term ρ fuel) bindPartial (λ f →
-  ⟦ t ⟧Term ρ fuel bindPartial (λ v → {!f v!}))
-eval (lam t) ρ fuel = Done (Val (λ v → {!⟦ t ⟧Term (v ∷ ρ) !}))
-eval (fix t) ρ fuel = ⟦ t ⟧Term ({!⟦ fix t ⟧Term ρ fuel!} ∷ ρ) fuel
+eval (app s t) ρ fuel = (⟦ s ⟧Term ρ fuel) bindPartialResult (λ f →
+  ⟦ t ⟧Term ρ fuel bindPartialResult (λ v →
+    f v fuel))
+eval (lam t) ρ fuel = Done (Val (λ v → ⟦ t ⟧Term (v ∷ ρ)))
+
+-- This definition is theoretically correct, but does not have the correct
+-- operational behavior (and wouldn't have the right cost in a cost monad). In
+-- particular, if t is not a lambda abstraction, it executes fuel steps of the
+-- fixpoint in a potentially eager way, even when many fewer are needed.
+-- Since fuel can be arbitrarily big, this induces an arbitrary slowdown.
+eval (fix t) ρ fuel = (⟦ fix t ⟧Term ρ fuel) bindPartialResult (λ v →
+  ⟦ t ⟧Term (v ∷ ρ) fuel)
+
+-- inline this to pass termination checking:
+{-
+checkFuel : ∀ {τ} → Partial τ → Partial τ
+checkFuel res zero = Timeout
+checkFuel res (suc fuel) = res fuel
 
 ⟦_⟧Term t ρ = checkFuel (eval t ρ)
+-}
+
+⟦_⟧Term t ρ zero = Timeout
+⟦_⟧Term t ρ (suc fuel) = eval t ρ fuel
 
 {-
 ⟦_⟧Term (lit v) ρ = {! }Done v
