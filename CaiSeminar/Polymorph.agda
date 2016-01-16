@@ -12,6 +12,7 @@ module Polymorph where
 
 open import Level renaming (zero to lzero; suc to lsuc)
 open import Function
+open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality as P
 
 open import Data.Product
@@ -60,6 +61,139 @@ mono0 = mono
 ⟦_⟧PolyType (mono mt) ρ = Lift (⟦ mt ⟧MonoType ρ)
 ⟦_⟧PolyType (all pt) ρ = ∀ (a : Set) → ⟦ pt ⟧PolyType (a ∷ ρ)
 
+TVtoFin : ∀ {n} → TVar n → Fin n
+TVtoFin this = zero
+TVtoFin (that v) = suc $ TVtoFin v
+{-
+_≤?_ : ∀ {n} → (a : Fin n) → (b : Fin n) → Dec (a ≤ b)
+a ≤? b = toℕ a N.≤? toℕ b
+-}
+
+--
+-- Untyped deBrujin indexes, based on https://github.com/Gabriel439/Haskell-Morte-Library/issues/1#issue-42860880.
+--
+-- 1. Shifting.
+-- What one would try writing if variables were integers:
+{-
+↑[ d , c ]TV x with inject₁ (TVtoFin x) ≤? c
+... | yes p = {!x + d!}
+... | no ¬p = {!x!}
+-}
+
+-- Variable shift, no cutoff.
+
+-- Naturals are a mess.
+{-
+-- Variable shift, no cutoff.
+↑ : ∀ {n} → (d : ℕ) → TVar n → TVar (n + d)
+↑ zero x = P.subst TVar (sym (+-right-identity _)) x
+↑ {n} (suc d) x = P.subst TVar (sym (+-suc n d)) (that (↑ d x))
+
+↑[_,_]TV : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → TVar n → TVar (n + d)
+↑[_,_]TV d zero x = ↑ d x -- After cutoff, hence shift.
+↑[_,_]TV d (suc c) this = this -- Before cutoff, no change.
+↑[_,_]TV d (suc c) (that x) = that (↑[ d , c ]TV x)
+
+-- Traverse monotypes. Boring since there are no binders.
+↑[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n → MonoType (n + d)
+↑[ d , c ]MT Nat = Nat
+↑[ d , c ]MT (mt₁ ⇒ mt₂) = (↑[ d , c ]MT mt₁) ⇒ ((↑[ d , c ]MT mt₂))
+↑[ d , c ]MT (tvar x) = tvar (↑[ d , c ]TV x)
+
+-- Traverse polytypes.
+↑[_,_]PT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → PolyType n → PolyType (n + d)
+↑[ d , c ]PT (mono mt) = mono (↑[ d , c ]MT mt)
+↑[ d , c ]PT (all pt) = all (↑[ d , suc c ]PT pt) -- Increase cutoff under binders.
+
+substTV[_:=_]_ : ∀ {n} → TVar n → MonoType n → TVar n → MonoType n
+substTV[ x := s ] this = {!!}
+substTV[ x := s ] that k = {!!}
+
+substMT[_:=_]_ : ∀ {n} → TVar n → MonoType n → MonoType n → MonoType n
+substMT[ x := s ] Nat = Nat
+substMT[ x := s ] (mt₁ ⇒ mt₂) = substMT[ x := s ] mt₁ ⇒ substMT[ x := s ] mt₂
+substMT[ x := s ] tvar k = substTV[ x := s ] k
+
+substPT[_:=_]_ : ∀ {n} → TVar n → MonoType n → PolyType n → PolyType n
+substPT[ x := s ] mono mt = mono (substMT[ x := s ] mt)
+substPT[ x := s ] all pt =
+    all (substPT[ that x :=
+                  P.subst MonoType arithLem (↑[ suc zero , zero ]MT s) ] pt)
+  where
+    arithLem : ∀ {n} → n + suc zero ≡ suc n
+    arithLem {n} = trans (+-suc n zero) (cong suc (+-right-identity n))
+
+-}
+
+-- Trick question: should we use (d + n) or (n + d) in the return type?
+-- Since + pattern matches only on the LHS, that makes lots of difference.
+-- Client-side, d + n appears more convenient, since d is typically known.
+-- Implementation-side, it depends.
+-- So we define both variants, and tag the (n + d) with ′.
+--
+-- Client side, use the variant without ′ by default.
+--
+-- Details: It's often easiest to use P.subst with +-comm to fix type errors,
+-- otherwise we need to explicitly prove n + 0 = n and n + suc m = suc (m + n),
+-- or even `n + suc zero ≡ suc n`. (That's recorded in history, should you
+-- really care.)
+
+↑ : ∀ {n} → (d : ℕ) → TVar n → TVar (d + n)
+↑ zero x = x
+↑ (suc d) x = that (↑ d x)
+
+↑′ : ∀ {n} → (d : ℕ) → TVar n → TVar (n + d)
+↑′ d x = P.subst TVar (+-comm d _) $ ↑ d x
+
+↑′[_,_]TV : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → TVar n → TVar (n + d)
+↑′[_,_]TV d zero x = ↑′ d x -- After cutoff, hence shift.
+↑′[_,_]TV d (suc c) this = this -- Before cutoff, no change.
+↑′[_,_]TV d (suc c) (that x) = that (↑′[ d , c ]TV x)
+
+-- Traverse monotypes. Boring since there are no binders.
+↑′[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n → MonoType (n + d)
+↑′[ d , c ]MT Nat = Nat
+↑′[ d , c ]MT (mt₁ ⇒ mt₂) = ↑′[ d , c ]MT mt₁ ⇒ ↑′[ d , c ]MT mt₂
+↑′[ d , c ]MT (tvar x) = tvar (↑′[ d , c ]TV x)
+
+↑[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n → MonoType (d + n)
+↑[ d , c ]MT mt = P.subst MonoType (+-comm _ d) $ ↑′[ d , c ]MT mt
+
+-- Traverse polytypes.
+↑′[_,_]PT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → PolyType n → PolyType (n + d)
+↑′[ d , c ]PT (mono mt) = mono (↑′[ d , c ]MT mt)
+↑′[ d , c ]PT (all pt) = all (↑′[ d , suc c ]PT pt) -- Increase cutoff under binders.
+
+↑[_,_]PT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → PolyType n → PolyType (d + n)
+↑[ d , c ]PT mt = P.subst PolyType (+-comm _ d) $ ↑′[ d , c ]PT mt
+
+{-
+substTV[_:=_]_ : ∀ {n} → TVar (suc n) → MonoType n → TVar n → MonoType n
+substTV[ x := s ] this = {!!}
+substTV[ x := s ] that k = {!!}
+-}
+
+substTV[_:=_]_ : ∀ {n} → TVar n → MonoType n → TVar n → MonoType n
+substTV[ x := s ] this = {!!}
+substTV[ x := s ] that k = {!!}
+
+substMT[_:=_]_ : ∀ {n} → TVar n → MonoType n → MonoType n → MonoType n
+substMT[ x := s ] Nat = Nat
+substMT[ x := s ] (mt₁ ⇒ mt₂) = substMT[ x := s ] mt₁ ⇒ substMT[ x := s ] mt₂
+substMT[ x := s ] tvar k = substTV[ x := s ] k
+
+substPT[_:=_]_ : ∀ {n} → TVar n → MonoType n → PolyType n → PolyType n
+substPT[ x := s ] mono mt = mono (substMT[ x := s ] mt)
+substPT[ x := s ] all pt =
+    all (substPT[ that x := ↑[ suc zero , zero ]MT s ] pt)
+
+shiftM : ∀ {n} → PolyType (suc n) → PolyType n
+shiftM = {!!}
+--instantiate : ∀ {n} → PolyType (suc n) → TVar (suc n) → MonoType 0 → PolyType n
+instantiate : ∀ {n} → PolyType (suc n) → MonoType n → PolyType n
+instantiate pt m = shiftM (substPT[ this := ↑[ suc zero , zero ]MT m ] pt)
+
+{-
 weakenTV : ∀ {n} → (m : ℕ) → TVar n → TVar (n + m)
 weakenTV zero tv = subst TVar (sym (+-right-identity _)) tv
 weakenTV (suc m) tv = {!tv!}
@@ -82,16 +216,17 @@ tSubst (that tv) zero m = tvar tv
 tSubst (that tv) (suc toInst) m  with finProvesSuc toInst
 ... | _ , refl = weakenMT′ 1 (tSubst tv toInst m)
 
-instantiateMT : ∀ {n} → MonoType (suc n) → Fin (suc n) → MonoType 0 → MonoType n
+instantiateMT : ∀ {n} → MonoType (suc n) → TVar (suc n) → MonoType 0 → MonoType n
 instantiateMT Nat toInst m = Nat
 instantiateMT (mt₁ ⇒ mt₂) toInst m = instantiateMT mt₁ toInst m ⇒ instantiateMT mt₂ toInst m
-instantiateMT (tvar x) toInst m = tSubst x toInst m
+instantiateMT (tvar x) toInst m = {!!} {- tSubst x toInst m -}
 
-instantiate : ∀ {n} → PolyType (suc n) → Fin (suc n) → MonoType 0 → PolyType n
+instantiate : ∀ {n} → PolyType (suc n) → TVar (suc n) → MonoType 0 → PolyType n
 instantiate (mono mt) toInst m = mono (instantiateMT mt toInst m)
-instantiate (all pt) toInst m = all (instantiate pt (suc toInst) m)
+instantiate (all pt) toInst m = all (instantiate pt (that toInst) m)
+-}
 
-subst-lemma-specialcase : ∀ τ mt → ⟦ τ ⟧PolyType (⟦ mt ⟧MonoType [] ∷ []) → ⟦ instantiate τ zero mt ⟧PolyType []
+subst-lemma-specialcase : ∀ τ mt → ⟦ τ ⟧PolyType (⟦ mt ⟧MonoType [] ∷ []) → ⟦ instantiate τ mt ⟧PolyType []
 subst-lemma-specialcase τ mt = {!τ!}
 
 Context : Set
@@ -140,7 +275,7 @@ data Term : {n : ℕ} → Context → PolyType n → Set where
   var : ∀ {τ Γ} → Var Γ τ → Term Γ τ
   app : ∀ {σ τ Γ} → Term Γ (mono0 (σ ⇒ τ)) → Term Γ (mono σ) → Term Γ (mono τ)
   lam : ∀ {σ τ Γ} → Term (mono σ ∷ Γ) (mono τ) → Term Γ (mono (σ ⇒ τ))
-  tapp : ∀ {n Γ} {τ : PolyType (suc n)} → Term Γ (all τ) → (mt : MonoType 0) → Term Γ (instantiate τ zero mt)
+  tapp : ∀ {n Γ} {τ : PolyType (suc n)} → Term Γ (all τ) → (mt : MonoType n) → Term Γ (instantiate τ mt)
 
 
 ⟦_⟧Term : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → ⟦ τ ⟧PolyType []
@@ -216,8 +351,6 @@ data Term : {n : ℕ} → Context → PolyType n → Set where
 -- -- substitution preserves STLC typing.
 
 -- -- Let's first implement *decision procedures* for equality.
-
--- open import Relation.Nullary
 
 -- -- Let's start from equality on numbers.
 -- exercise-nat-≟ : (a b : ℕ) → Dec (a ≡ b)
