@@ -80,51 +80,6 @@ a ≤? b = toℕ a N.≤? toℕ b
 ... | no ¬p = {!x!}
 -}
 
--- Variable shift, no cutoff.
-
--- Naturals are a mess.
-{-
--- Variable shift, no cutoff.
-↑ : ∀ {n} → (d : ℕ) → TVar n → TVar (n + d)
-↑ zero x = P.subst TVar (sym (+-right-identity _)) x
-↑ {n} (suc d) x = P.subst TVar (sym (+-suc n d)) (that (↑ d x))
-
-↑[_,_]TV : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → TVar n → TVar (n + d)
-↑[_,_]TV d zero x = ↑ d x -- After cutoff, hence shift.
-↑[_,_]TV d (suc c) this = this -- Before cutoff, no change.
-↑[_,_]TV d (suc c) (that x) = that (↑[ d , c ]TV x)
-
--- Traverse monotypes. Boring since there are no binders.
-↑[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n → MonoType (n + d)
-↑[ d , c ]MT Nat = Nat
-↑[ d , c ]MT (mt₁ ⇒ mt₂) = (↑[ d , c ]MT mt₁) ⇒ ((↑[ d , c ]MT mt₂))
-↑[ d , c ]MT (tvar x) = tvar (↑[ d , c ]TV x)
-
--- Traverse polytypes.
-↑[_,_]PT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → PolyType n → PolyType (n + d)
-↑[ d , c ]PT (mono mt) = mono (↑[ d , c ]MT mt)
-↑[ d , c ]PT (all pt) = all (↑[ d , suc c ]PT pt) -- Increase cutoff under binders.
-
-substTV[_:=_]_ : ∀ {n} → TVar n → MonoType n → TVar n → MonoType n
-substTV[ x := s ] this = {!!}
-substTV[ x := s ] that k = {!!}
-
-substMT[_:=_]_ : ∀ {n} → TVar n → MonoType n → MonoType n → MonoType n
-substMT[ x := s ] Nat = Nat
-substMT[ x := s ] (mt₁ ⇒ mt₂) = substMT[ x := s ] mt₁ ⇒ substMT[ x := s ] mt₂
-substMT[ x := s ] tvar k = substTV[ x := s ] k
-
-substPT[_:=_]_ : ∀ {n} → TVar n → MonoType n → PolyType n → PolyType n
-substPT[ x := s ] mono mt = mono (substMT[ x := s ] mt)
-substPT[ x := s ] all pt =
-    all (substPT[ that x :=
-                  P.subst MonoType arithLem (↑[ suc zero , zero ]MT s) ] pt)
-  where
-    arithLem : ∀ {n} → n + suc zero ≡ suc n
-    arithLem {n} = trans (+-suc n zero) (cong suc (+-right-identity n))
-
--}
-
 -- Trick question: should we use (d + n) or (n + d) in the return type?
 -- Since + pattern matches only on the LHS, that makes lots of difference.
 -- Client-side, d + n appears more convenient, since d is typically known.
@@ -138,6 +93,7 @@ substPT[ x := s ] all pt =
 -- or even `n + suc zero ≡ suc n`. (That's recorded in history, should you
 -- really care.)
 
+-- Variable shift, no cutoff.
 ↑ : ∀ {n} → (d : ℕ) → TVar n → TVar (d + n)
 ↑ zero x = x
 ↑ (suc d) x = that (↑ d x)
