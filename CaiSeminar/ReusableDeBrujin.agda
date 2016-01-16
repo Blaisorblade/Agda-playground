@@ -48,3 +48,8 @@ data _≼_ : (Γ₁ Γ₂ : Context) → Set where
   drop : ∀ {Γ₁ Γ₂} → (τ : Type) →
          Γ₁ ≼ Γ₂ →
          Γ₁ ≼ (τ ∷ Γ₂)
+
+weaken-var : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Var Γ₁ τ → Var Γ₂ τ
+weaken-var (keep τ Γ₁≼Γ₂) this = this
+weaken-var (keep σ Γ₁≼Γ₂) (that x) = that (weaken-var Γ₁≼Γ₂ x)
+weaken-var (drop τ₁ Γ₁≼Γ₂) x = that (weaken-var Γ₁≼Γ₂ x)
