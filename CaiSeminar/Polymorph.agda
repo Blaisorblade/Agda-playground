@@ -14,6 +14,7 @@ open import Level renaming (zero to lzero; suc to lsuc)
 open import Function
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality as P
+open import Relation.Binary.HeterogeneousEquality as H
 
 open import Data.Product
 
@@ -33,7 +34,7 @@ data Kind : Set where
 
 -- Import constructors from deBrujin utilities. They will take {Type} as
 -- implicit argument, so we can import them once.
-open import ReusableDeBrujinSyntax using (keep; drop; ∅; this; that)
+open import ReusableDeBrujinSyntax using (keep; drop; ∅; this; that; lemma-var-≅→types; var-≅)
 
 -- Overload _≼_ by hand.
 _≼_ : ∀ {Type} → (Γ₁ Γ₂ : ReusableDeBrujinSyntax.Context Type) → Set
@@ -174,42 +175,14 @@ exercise-var-≟ (that x₁) (that x₂) with exercise-var-≟ x₁ x₂
 exercise-var-≟ (that x₁) (that x₂) | yes x₁≡x₂ = yes (P.cong that x₁≡x₂)
 exercise-var-≟ (that x₁) (that x₂) | no ¬x₁≡x₂ = no (λ that-x₁≡that-x₂ → ¬x₁≡x₂ (exercise-lemma-that-injective-≡ that-x₁≡that-x₂))
 
-open import Relation.Binary.HeterogeneousEquality as H
-
--- Inspired from answers to http://stackoverflow.com/q/24139810/53974. The
--- standard H.cong is not flexible enough. This probably belongs in the standard
--- library.
-hcong : ∀ {a b c} {A : Set a} {B : A → Set b} {C : ∀ {x} → B x → Set c}
-      {ax ay} {x : B ax} {y : B ay} (f : ∀ {z} (x : B z) → C x) →
-      ax ≡ ay →
-      x ≅ y → f x ≅ f y
-hcong f refl refl = refl
-
--- Only works if τ is an index of Var, not a parameter O_O.
-lemma-that-injective-≅ : ∀ {Γ σ₀ σ τ} {x₁ : Var Γ σ} {x₂ : Var Γ τ} → vthat {σ₀} x₁ ≅ vthat {σ₀} x₂ → x₁ ≅ x₂
-lemma-that-injective-≅ refl = refl
-
--- Prove that the *type constructor* Var Γ is injective: if x₁ ≅ x₂, they're in
--- the same type, so Var Γ σ ≡ Var Γ τ. Hence, σ ≡ τ.
-lemma-var-≅→types : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → x₁ ≅ x₂ → σ ≡ τ
-lemma-var-≅→types this this x₁≅x₂ = refl
-lemma-var-≅→types (that x₁) (that .x₁) refl = refl
-lemma-var-≅→types this (that x₂) ()
-lemma-var-≅→types (that x₁) this ()
-
-var-≅ : ∀ {Γ σ τ} → (x₁ : Var Γ σ) → (x₂ : Var Γ τ) → Dec (x₁ ≅ x₂)
-var-≅ this this = yes refl
-var-≅ this (that x₂) = no (λ ())
-var-≅ (that x₁) this = no (λ ())
-var-≅ (that x₁) (that x₂) with var-≅ x₁ x₂
-var-≅ (that x₁) (that x₂) | yes x₁≅x₂ = yes (hcong that (lemma-var-≅→types x₁ x₂ x₁≅x₂) x₁≅x₂)
-var-≅ (that x₁) (that x₂) | no ¬x₁≅x₂ = no (λ that-x₁≅that-x₂ → ¬x₁≅x₂ (lemma-that-injective-≅ that-x₁≅that-x₂))
+var-subst[_!_:=_]_ : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Var Γ₂ σ → Term Γ₁ σ → Var Γ₂ τ → Term Γ₂ τ
+var-subst[ Γ₁≼Γ₂ ! x := to-subst ] v with var-≅ _ x v
+var-subst[ Γ₁≼Γ₂ ! x := to-subst ] v | yes p = weaken-term Γ₁≼Γ₂ (P.subst (Term _) (lemma-var-≅→types _ _ _ p) to-subst)
+var-subst[ Γ₁≼Γ₂ ! x := to-subst ] v | no ¬p = var v
 
 term-subst : ∀ {Γ₁ Γ₂ σ τ} → Γ₁ ≼ Γ₂ → Var Γ₂ σ → Term Γ₁ σ → Term Γ₂ τ → Term Γ₂ τ
 term-subst Γ₁≼Γ₂ x to-subst (tapp t mt) = tapp (term-subst Γ₁≼Γ₂ x to-subst t) mt
 term-subst Γ₁≼Γ₂ x to-subst (lit v) = lit v
 term-subst Γ₁≼Γ₂ x to-subst (app s t) = app (term-subst Γ₁≼Γ₂ x to-subst s) (term-subst Γ₁≼Γ₂ x to-subst t)
 term-subst Γ₁≼Γ₂ x to-subst (lam t) = lam (term-subst (drop _ Γ₁≼Γ₂) (that x) to-subst t)
-term-subst Γ₁≼Γ₂ x to-subst (var x₁) with var-≅ x x₁
-term-subst Γ₁≼Γ₂ x to-subst (var x₁) | yes p = weaken-term Γ₁≼Γ₂ (P.subst (Term _) (lemma-var-≅→types _ _ p) to-subst)
-term-subst Γ₁≼Γ₂ x to-subst (var x₁) | no ¬p = var x₁
+term-subst Γ₁≼Γ₂ x to-subst (var x₁) = var-subst[ Γ₁≼Γ₂ ! x := to-subst ] x₁

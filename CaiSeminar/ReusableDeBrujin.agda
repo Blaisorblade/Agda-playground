@@ -17,7 +17,7 @@ open import Data.List hiding (drop; all)
 open import Data.List.All renaming (All to HList) hiding (all)
 
 open import ReusableDeBrujinSyntax Type public
-  hiding (_≼_; keep; drop; this; that)
+  hiding (_≼_; keep; drop; this; that; var-≅; lemma-var-≅→types)
 
 open import ReusableDeBrujinSyntax
   using (keep; drop; ∅; this; that)
