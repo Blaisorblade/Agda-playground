@@ -344,19 +344,7 @@ exampleTerm-wrapped = lam exampleTerm
 exampleTerm-closed : Term [] (mono0 ((MNat ⇒ MNat) ⇒ MNat ⇒ MNat))
 exampleTerm-closed = lam exampleTerm-wrapped
 
--- Back to the code. Let's try implementing weakening, for variables and terms.
--- First attempt. Trivial for variables:
-weakenVar₁ : ∀ {Γ σ τ} → Var Γ τ → Var (σ ∷ Γ) τ
-weakenVar₁ = that
-
--- Impossible for terms, because the induction hypothesis is not strong enough.
-{-
-weakenTerm₁ : ∀ {Γ σ τ} → Term τ Γ → Term τ (σ ∷ Γ)
-weakenTerm₁ (lit x) = lit x
-weakenTerm₁ (var x) = var (weakenVar₁ x)
-weakenTerm₁ (app s t) = app (weakenTerm₁ s) (weakenTerm₁ t)
-weakenTerm₁ (lam t) = lam {!!}
--}
+-- Weakening
 
 weaken-term : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Term Γ₁ τ → Term Γ₂ τ
 weaken-term Γ₁≼Γ₂ (lit v) = lit v
