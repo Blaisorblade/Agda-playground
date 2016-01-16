@@ -31,55 +31,60 @@ data Kind : Set where
 ⟦_⟧Kind : Kind → Set₁
 ⟦ ⋆ ⟧Kind = Set
 
-import ReusableDeBrujin Kind ⟦_⟧Kind as K
+-- Import constructors from deBrujin utilities. They will take {Type} as
+-- implicit argument, so we can import them once.
+open import ReusableDeBrujinSyntax using (keep; drop; ∅; this; that)
 
-data TVar : ℕ → Set where
-  this : ∀ {n} → TVar (suc n)
-  that : ∀ {n} → TVar n → TVar (suc n)
+-- Overload _≼_ by hand.
+_≼_ : ∀ {Type} → (Γ₁ Γ₂ : ReusableDeBrujinSyntax.Context Type) → Set
+_≼_ {Type} = ReusableDeBrujinSyntax._≼_ Type
+
+open import ReusableDeBrujin Kind ⟦_⟧Kind as K renaming
+  ( Context to TContext
+  ; Var to TVar
+  ; weaken-var to weaken-tvar
+  ; ⟦_⟧Context to ⟦_⟧TContext
+  ; ⟦_⟧Var to ⟦_⟧TVar
+  )
 
 infixr 6 _⇒_
-data MonoType (n : ℕ) : Kind → Set where
-  MNat : MonoType n ⋆
-  _⇒_ : (σ : MonoType n ⋆) → (τ : MonoType n ⋆) → MonoType n ⋆
-  tvar : TVar n → MonoType n ⋆
+data MonoType (Γ : TContext) : Kind → Set where
+  MNat : MonoType Γ ⋆
+  _⇒_ : (σ : MonoType Γ ⋆) → (τ : MonoType Γ ⋆) → MonoType Γ ⋆
+  tvar : ∀ {k} → TVar Γ k → MonoType Γ k
 
-
-TContext : ℕ → Set₁
-TContext n = Vec Set n
-
-⟦_⟧TVar : ∀ {n} → TVar n → TContext n → Set
-⟦_⟧TVar this (x ∷ ρ) = x
-⟦_⟧TVar (that tv) (x ∷ ρ) = ⟦ tv ⟧TVar ρ
-
-⟦_⟧MonoType : ∀ {n k} → MonoType n k → TContext n → ⟦ k ⟧Kind
+⟦_⟧MonoType : ∀ {Γ k} → MonoType Γ k → ⟦ Γ ⟧TContext → ⟦ k ⟧Kind
 ⟦ MNat ⟧MonoType ρ = ℕ
 ⟦ σ ⇒ τ ⟧MonoType ρ = ⟦ σ ⟧MonoType ρ → ⟦ τ ⟧MonoType ρ
 ⟦ tvar tv ⟧MonoType ρ = ⟦ tv ⟧TVar ρ
 
 -- Prenex polymorphism; `all` quantifiers aren't allowed everywhere.
-data PolyType (n : ℕ) : Kind → Set where
-  mono : (mt : MonoType n ⋆) → PolyType n ⋆
-  all : PolyType (suc n) ⋆ → PolyType n ⋆
+data PolyType (Γ : TContext) : Kind → Set where
+  mono : (mt : MonoType Γ ⋆) → PolyType Γ ⋆
+  all : PolyType (⋆ ∷ Γ) ⋆ → PolyType Γ ⋆
 
-mono0 : (mt : MonoType 0 ⋆) → PolyType 0 ⋆
+mono0 : (mt : MonoType [] ⋆) → PolyType [] ⋆
 mono0 = mono
 
 Nat = mono0 MNat
 
 -- Thanks to predicativity, type variables can only be instantiated by
 -- polytypes, so we can write this in Agda without --set-in-set.
-⟦_⟧PolyType : ∀ {n} → PolyType n ⋆ → TContext n → Set₁
+⟦_⟧PolyType : ∀ {Γ} → PolyType Γ ⋆ → ⟦ Γ ⟧TContext → Set₁
 ⟦_⟧PolyType (mono mt) ρ = Lift (⟦ mt ⟧MonoType ρ)
 ⟦_⟧PolyType (all pt) ρ = ∀ (a : Set) → ⟦ pt ⟧PolyType (a ∷ ρ)
 
-TVtoFin : ∀ {n} → TVar n → Fin n
+{-
+TVtoFin : ∀ {Γ} → TVar Γ ⋆ → Fin n
 TVtoFin this = zero
 TVtoFin (that v) = suc $ TVtoFin v
+-}
 {-
 _≤?_ : ∀ {n} → (a : Fin n) → (b : Fin n) → Dec (a ≤ b)
 a ≤? b = toℕ a N.≤? toℕ b
 -}
 
+{-
 --
 -- Untyped deBrujin indexes, based on https://github.com/Gabriel439/Haskell-Morte-Library/issues/1#issue-42860880.
 
@@ -194,6 +199,7 @@ substPT′[ x := s ] all pt =
 
 instantiate′ : ∀ {n} → PolyType (suc n) ⋆ → MonoType n ⋆ → PolyType n ⋆
 instantiate′ pt m =  substPT′[ this := m ] pt
+-}
 
 {-
 this  -- Before cutoff, no change.
@@ -292,11 +298,14 @@ instantiate (mono mt) toInst m = mono (instantiateMT mt toInst m)
 instantiate (all pt) toInst m = all (instantiate pt (that toInst) m)
 -}
 
+{-
 subst-lemma-specialcase : ∀ pt mt → ⟦ pt ⟧PolyType (⟦ mt ⟧MonoType [] ∷ []) → ⟦ instantiate′ pt mt ⟧PolyType []
 subst-lemma-specialcase (mono mt) s x = {!!}
 subst-lemma-specialcase (all pt) s x = λ a → {!!}
+-}
 
-open import ReusableDeBrujin (PolyType 0 ⋆) (λ pt → ⟦_⟧PolyType {0} pt [])
+open import ReusableDeBrujin (PolyType [] ⋆) (λ pt → ⟦_⟧PolyType pt [])
+  as T
 
 -- Think of this context as
 -- x : Nat, f : Nat ⇒ Nat ⊢ f x : Nat
@@ -305,10 +314,10 @@ exampleΓ : Context
 exampleΓ = Nat ∷ mono (MNat ⇒ MNat) ∷ []
 
 -- Example of the semantics of a context.
-example : ⟦ exampleΓ ⟧Context ≡ HList (λ pt → ⟦_⟧PolyType {0} pt []) exampleΓ
+example : ⟦ exampleΓ ⟧Context ≡ HList (λ pt → ⟦_⟧PolyType pt []) exampleΓ
 example = refl
 
-anHList : HList (λ pt → ⟦_⟧PolyType {0} pt []) exampleΓ
+anHList : HList (λ pt → ⟦_⟧PolyType pt []) exampleΓ
 anHList = lift 42 ∷ lift (λ z → z) ∷ []
 
 exampleEnv  : ⟦ exampleΓ ⟧Context
@@ -319,19 +328,19 @@ exampleEnv = anHList
 -- Of note: When we descend in a lambda abstraction, the type of the argument is
 -- pushed at the left, so `this` will refer to it. Hence, this are still de
 -- Brujin indexes, and not levels (which work the other way around).
-data Term : {n : ℕ} → Context → PolyType n ⋆ → Set where
+data Term : {Δ : TContext} → Context → PolyType Δ ⋆ → Set where
   lit : ∀ {Γ} → (v : ℕ) → Term Γ Nat
   var : ∀ {τ Γ} → Var Γ τ → Term Γ τ
   app : ∀ {σ τ Γ} → Term Γ (mono0 (σ ⇒ τ)) → Term Γ (mono σ) → Term Γ (mono τ)
   lam : ∀ {σ τ Γ} → Term (mono σ ∷ Γ) (mono τ) → Term Γ (mono (σ ⇒ τ))
-  tapp : ∀ {n Γ τ} → Term Γ (all τ) → (mt : MonoType n ⋆) → Term Γ (instantiate′ τ mt)
+  tapp : ∀ {n Δ Γ} {τ : PolyType (⋆ ∷ Δ) ⋆} → Term Γ (all τ) → (mt : MonoType n ⋆) → Term {Δ} Γ {! instantiate′ τ mt !}
 
 ⟦_⟧Term : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → ⟦ τ ⟧PolyType []
 ⟦_⟧Term (var x) ρ   = ⟦ x ⟧Var ρ
 ⟦_⟧Term (lit v) ρ   = lift v
 ⟦_⟧Term (app s t) ρ = lift $ lower (⟦ s ⟧Term ρ) $ lower (⟦ t ⟧Term ρ)
 ⟦_⟧Term (lam t) ρ   = lift $ λ v → lower $ ⟦ t ⟧Term (lift v ∷ ρ)
-⟦_⟧Term (tapp t mt) ρ = subst-lemma-specialcase _ mt (⟦ t ⟧Term ρ (⟦ mt ⟧MonoType []))
+⟦_⟧Term (tapp t mt) ρ = {! subst-lemma-specialcase _ mt (⟦ t ⟧Term ρ (⟦ mt ⟧MonoType [])) !}
 
 -- Examples
 idNat : Term [] (mono (MNat ⇒ MNat))
