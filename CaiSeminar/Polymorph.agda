@@ -31,9 +31,10 @@ data TVar : ℕ → Set where
 
 infixr 6 _⇒_
 data MonoType (n : ℕ) : Set where
-  Nat : MonoType n
+  MNat : MonoType n
   _⇒_ : (σ : MonoType n) → (τ : MonoType n) → MonoType n
   tvar : TVar n → MonoType n
+
 
 TContext : ℕ → Set₁
 TContext n = Vec Set n
@@ -43,7 +44,7 @@ TContext n = Vec Set n
 ⟦_⟧TVar (that tv) (x ∷ ρ) = ⟦ tv ⟧TVar ρ
 
 ⟦_⟧MonoType : ∀ {n} → MonoType n → TContext n → Set
-⟦ Nat ⟧MonoType ρ = ℕ
+⟦ MNat ⟧MonoType ρ = ℕ
 ⟦ σ ⇒ τ ⟧MonoType ρ = ⟦ σ ⟧MonoType ρ → ⟦ τ ⟧MonoType ρ
 ⟦ tvar tv ⟧MonoType ρ = ⟦ tv ⟧TVar ρ
 
@@ -54,6 +55,8 @@ data PolyType (n : ℕ) : Set where
 
 mono0 : (mt : MonoType 0) → PolyType 0
 mono0 = mono
+
+Nat = mono0 MNat
 
 -- Thanks to predicativity, type variables can only be instantiated by
 -- polytypes, so we can write this in Agda without --set-in-set.
@@ -121,7 +124,7 @@ a ≤? b = toℕ a N.≤? toℕ b
 
 -- Traverse monotypes. Boring since there are no binders.
 ↑′[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n → MonoType (n + d)
-↑′[ d , c ]MT Nat = Nat
+↑′[ d , c ]MT MNat = MNat
 ↑′[ d , c ]MT (mt₁ ⇒ mt₂) = ↑′[ d , c ]MT mt₁ ⇒ ↑′[ d , c ]MT mt₂
 ↑′[ d , c ]MT (tvar x) = tvar (↑′[ d , c ]TV x)
 
@@ -160,7 +163,7 @@ finProvesSuc (suc f) = _ , refl
 ⇣[ suc c ]TV that x | _ , refl = that (⇣[ c ]TV x)
 
 ⇣[_]MT_ : ∀ {n} → (c : Fin (suc n)) → MonoType (suc n) → MonoType n
-⇣[ c ]MT Nat = Nat
+⇣[ c ]MT MNat = MNat
 ⇣[ c ]MT (mt₁ ⇒ mt₂) = (⇣[ c ]MT mt₁) ⇒ (⇣[ c ]MT mt₂)
 ⇣[ c ]MT tvar x = tvar (⇣[ c ]TV x)
 
@@ -173,7 +176,7 @@ substTV′[ that x := s ] that k with tvarProvesSuc x
 ... | n , refl = ↑[ suc zero , zero ]MT (substTV′[ x := ⇣[ zero ]MT s ] k)
 
 substMT′[_:=_]_ : ∀ {n} → TVar (suc n) → MonoType n → MonoType (suc n) → MonoType n
-substMT′[ x := s ] Nat = Nat
+substMT′[ x := s ] MNat = MNat
 substMT′[ x := s ] (mt₁ ⇒ mt₂) = substMT′[ x := s ] mt₁ ⇒ substMT′[ x := s ] mt₂
 substMT′[ x := s ] tvar k = substTV′[ x := s ] k
 
@@ -234,7 +237,7 @@ m ! suc n substTV[ that x := s ] that k = casted
     casted = P.subst MonoType (+-suc n m) actualRes
 
 substMT[_:=_]_ : ∀ {n} → TVar n → MonoType n → MonoType n → MonoType n
-substMT[ x := s ] Nat = Nat
+substMT[ x := s ] MNat = MNat
 substMT[ x := s ] (mt₁ ⇒ mt₂) = substMT[ x := s ] mt₁ ⇒ substMT[ x := s ] mt₂
 substMT[ x := s ] tvar k = substTV[ x := s ] k
 
@@ -273,7 +276,7 @@ tSubst (that tv) (suc toInst) m  with finProvesSuc toInst
 ... | _ , refl = weakenMT′ 1 (tSubst tv toInst m)
 
 instantiateMT : ∀ {n} → MonoType (suc n) → TVar (suc n) → MonoType 0 → MonoType n
-instantiateMT Nat toInst m = Nat
+instantiateMT MNat toInst m = MNat
 instantiateMT (mt₁ ⇒ mt₂) toInst m = instantiateMT mt₁ toInst m ⇒ instantiateMT mt₂ toInst m
 instantiateMT (tvar x) toInst m = {!!} {- tSubst x toInst m -}
 
@@ -297,7 +300,7 @@ Context = List (PolyType 0)
 -- x : Nat, f : Nat ⇒ Nat ⊢ f x : Nat
 -- However, variables are represented by position, not name.
 exampleΓ : Context
-exampleΓ = mono Nat ∷ mono (Nat ⇒ Nat) ∷ []
+exampleΓ = Nat ∷ mono (MNat ⇒ MNat) ∷ []
 
 -- Example of the semantics of a context.
 example : ⟦ exampleΓ ⟧Context ≡ HList (λ pt → ⟦_⟧PolyType {0} pt []) exampleΓ
@@ -328,7 +331,7 @@ data Var : Context → PolyType 0 → Set where
 -- pushed at the left, so `this` will refer to it. Hence, this are still de
 -- Brujin indexes, and not levels (which work the other way around).
 data Term : {n : ℕ} → Context → PolyType n → Set where
-  lit : ∀ {Γ} → (v : ℕ) → Term Γ (mono0 Nat)
+  lit : ∀ {Γ} → (v : ℕ) → Term Γ Nat
   var : ∀ {τ Γ} → Var Γ τ → Term Γ τ
   app : ∀ {σ τ Γ} → Term Γ (mono0 (σ ⇒ τ)) → Term Γ (mono σ) → Term Γ (mono τ)
   lam : ∀ {σ τ Γ} → Term (mono σ ∷ Γ) (mono τ) → Term Γ (mono (σ ⇒ τ))
@@ -340,40 +343,42 @@ data Term : {n : ℕ} → Context → PolyType n → Set where
 ⟦_⟧Term (app s t) ρ = lift $ lower (⟦ s ⟧Term ρ) $ lower (⟦ t ⟧Term ρ)
 ⟦_⟧Term (lam t) ρ   = lift $ λ v → lower $ ⟦ t ⟧Term (lift v ∷ ρ)
 ⟦_⟧Term (tapp t mt) ρ = subst-lemma-specialcase _ mt (⟦ t ⟧Term ρ (⟦ mt ⟧MonoType []))
--- -- Examples
--- idNat : Term [] (mono (Nat ⇒ Nat))
--- idNat = lam (var this)
 
--- -- Translate to our STLC embedding the judgment:
--- -- x : Nat, f : Nat ⇒ Nat ⊢ f x : Nat
--- -- The deBrujin version of the context is exampleΓ.
--- exampleTerm : Term exampleΓ Nat
--- exampleTerm = app (var (that this)) (var this)
+-- Examples
+idNat : Term [] (mono (MNat ⇒ MNat))
+idNat = lam (var this)
 
--- -- f : Nat ⇒ Nat ⊢ λ (x : Nat) . f x : Nat ⇒ Nat
--- exampleTerm-wrapped : Term (Nat ⇒ Nat ∷ []) (Nat ⇒ Nat)
--- exampleTerm-wrapped = lam exampleTerm
+-- Translate to our STLC embedding the judgment:
+-- x : Nat, f : Nat ⇒ Nat ⊢ f x : Nat
+-- The deBrujin version of the context is exampleΓ.
+exampleTerm : Term exampleΓ Nat
+exampleTerm = app (var (that this)) (var this)
 
--- -- ⊢ λ (f : Nat ⇒ Nat) (x : Nat) . f x : (Nat ⇒ Nat) ⇒ Nat ⇒ Nat
--- exampleTerm-closed : Term [] ((Nat ⇒ Nat) ⇒ Nat ⇒ Nat)
--- exampleTerm-closed = lam exampleTerm-wrapped
+-- f : Nat ⇒ Nat ⊢ λ (x : Nat) . f x : Nat ⇒ Nat
+exampleTerm-wrapped : Term (mono0 (MNat ⇒ MNat) ∷ []) (mono0 (MNat ⇒ MNat))
+exampleTerm-wrapped = lam exampleTerm
 
--- -- Back to the code. Let's try implementing weakening, for variables and terms.
--- -- First attempt. Trivial for variables:
--- weakenVar₁ : ∀ {Γ σ τ} → Var Γ τ → Var (σ ∷ Γ) τ
--- weakenVar₁ = that
+-- ⊢ λ (f : Nat ⇒ Nat) (x : Nat) . f x : (Nat ⇒ Nat) ⇒ Nat ⇒ Nat
+exampleTerm-closed : Term [] (mono0 ((MNat ⇒ MNat) ⇒ MNat ⇒ MNat))
+exampleTerm-closed = lam exampleTerm-wrapped
 
--- -- Impossible for terms, because the induction hypothesis is not strong enough.
--- {-
--- weakenTerm₁ : ∀ {Γ σ τ} → Term τ Γ → Term τ (σ ∷ Γ)
--- weakenTerm₁ (lit x) = lit x
--- weakenTerm₁ (var x) = var (weakenVar₁ x)
--- weakenTerm₁ (app s t) = app (weakenTerm₁ s) (weakenTerm₁ t)
--- weakenTerm₁ (lam t) = lam {!!}
--- -}
+-- Back to the code. Let's try implementing weakening, for variables and terms.
+-- First attempt. Trivial for variables:
+weakenVar₁ : ∀ {Γ σ τ} → Var Γ τ → Var (σ ∷ Γ) τ
+weakenVar₁ = that
 
--- -- Let's generalize weakening, so that we can weaken a term to any bigger context.
--- -- So first let's define "bigger context".
+-- Impossible for terms, because the induction hypothesis is not strong enough.
+{-
+weakenTerm₁ : ∀ {Γ σ τ} → Term τ Γ → Term τ (σ ∷ Γ)
+weakenTerm₁ (lit x) = lit x
+weakenTerm₁ (var x) = var (weakenVar₁ x)
+weakenTerm₁ (app s t) = app (weakenTerm₁ s) (weakenTerm₁ t)
+weakenTerm₁ (lam t) = lam {!!}
+-}
+
+-- Let's generalize weakening, so that we can weaken a term to any bigger context.
+-- So first let's define "bigger context".
+
 
 -- infix 4 _≼_
 -- data _≼_ : (Γ₁ Γ₂ : Context) → Set where
