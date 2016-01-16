@@ -25,15 +25,23 @@ open import Data.Vec hiding (drop)
 open import Data.List hiding (drop; all)
 open import Data.List.All renaming (All to HList) hiding (all)
 
+data Kind : Set where
+  ⋆ : Kind
+
+⟦_⟧Kind : Kind → Set₁
+⟦ ⋆ ⟧Kind = Set
+
+import ReusableDeBrujin Kind ⟦_⟧Kind as K
+
 data TVar : ℕ → Set where
   this : ∀ {n} → TVar (suc n)
   that : ∀ {n} → TVar n → TVar (suc n)
 
 infixr 6 _⇒_
-data MonoType (n : ℕ) : Set where
-  MNat : MonoType n
-  _⇒_ : (σ : MonoType n) → (τ : MonoType n) → MonoType n
-  tvar : TVar n → MonoType n
+data MonoType (n : ℕ) : Kind → Set where
+  MNat : MonoType n ⋆
+  _⇒_ : (σ : MonoType n ⋆) → (τ : MonoType n ⋆) → MonoType n ⋆
+  tvar : TVar n → MonoType n ⋆
 
 
 TContext : ℕ → Set₁
@@ -43,24 +51,24 @@ TContext n = Vec Set n
 ⟦_⟧TVar this (x ∷ ρ) = x
 ⟦_⟧TVar (that tv) (x ∷ ρ) = ⟦ tv ⟧TVar ρ
 
-⟦_⟧MonoType : ∀ {n} → MonoType n → TContext n → Set
+⟦_⟧MonoType : ∀ {n k} → MonoType n k → TContext n → ⟦ k ⟧Kind
 ⟦ MNat ⟧MonoType ρ = ℕ
 ⟦ σ ⇒ τ ⟧MonoType ρ = ⟦ σ ⟧MonoType ρ → ⟦ τ ⟧MonoType ρ
 ⟦ tvar tv ⟧MonoType ρ = ⟦ tv ⟧TVar ρ
 
 -- Prenex polymorphism; `all` quantifiers aren't allowed everywhere.
-data PolyType (n : ℕ) : Set where
-  mono : (mt : MonoType n) → PolyType n
-  all : PolyType (suc n) → PolyType n
+data PolyType (n : ℕ) : Kind → Set where
+  mono : (mt : MonoType n ⋆) → PolyType n ⋆
+  all : PolyType (suc n) ⋆ → PolyType n ⋆
 
-mono0 : (mt : MonoType 0) → PolyType 0
+mono0 : (mt : MonoType 0 ⋆) → PolyType 0 ⋆
 mono0 = mono
 
 Nat = mono0 MNat
 
 -- Thanks to predicativity, type variables can only be instantiated by
 -- polytypes, so we can write this in Agda without --set-in-set.
-⟦_⟧PolyType : ∀ {n} → PolyType n → TContext n → Set₁
+⟦_⟧PolyType : ∀ {n} → PolyType n ⋆ → TContext n → Set₁
 ⟦_⟧PolyType (mono mt) ρ = Lift (⟦ mt ⟧MonoType ρ)
 ⟦_⟧PolyType (all pt) ρ = ∀ (a : Set) → ⟦ pt ⟧PolyType (a ∷ ρ)
 
@@ -123,21 +131,20 @@ a ≤? b = toℕ a N.≤? toℕ b
 ↑′[ d , suc c ]TV that x = that (↑′[ d , c ]TV x)
 
 -- Traverse monotypes. Boring since there are no binders.
-↑′[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n → MonoType (n + d)
+↑′[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n ⋆ → MonoType (n + d) ⋆
 ↑′[ d , c ]MT MNat = MNat
 ↑′[ d , c ]MT (mt₁ ⇒ mt₂) = ↑′[ d , c ]MT mt₁ ⇒ ↑′[ d , c ]MT mt₂
 ↑′[ d , c ]MT (tvar x) = tvar (↑′[ d , c ]TV x)
 
-↑[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n → MonoType (d + n)
-↑[ d , c ]MT mt = P.subst MonoType (+-comm _ d) $ ↑′[ d , c ]MT mt
+↑[_,_]MT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → MonoType n ⋆ → MonoType (d + n) ⋆
+↑[ d , c ]MT mt = P.subst (λ n → MonoType n ⋆)  (+-comm _ d) $ ↑′[ d , c ]MT mt
 
 -- Traverse polytypes.
-↑′[_,_]PT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → PolyType n → PolyType (n + d)
+↑′[_,_]PT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → PolyType n ⋆ → PolyType (n + d) ⋆
 ↑′[ d , c ]PT (mono mt) = mono (↑′[ d , c ]MT mt)
 ↑′[ d , c ]PT (all pt) = all (↑′[ d , suc c ]PT pt) -- Increase cutoff under binders.
-
-↑[_,_]PT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → PolyType n → PolyType (d + n)
-↑[ d , c ]PT mt = P.subst PolyType (+-comm _ d) $ ↑′[ d , c ]PT mt
+↑[_,_]PT : ∀ {n} → (d : ℕ) → (c : Fin (suc n)) → PolyType n ⋆ → PolyType (d + n) ⋆
+↑[ d , c ]PT mt = P.subst (λ n → PolyType n ⋆) (+-comm _ d) $ ↑′[ d , c ]PT mt
 
 -- Substitution.
 
@@ -162,12 +169,12 @@ finProvesSuc (suc f) = _ , refl
 ⇣[ suc c ]TV this   | _ , refl = this  -- Before cutoff, no change.
 ⇣[ suc c ]TV that x | _ , refl = that (⇣[ c ]TV x)
 
-⇣[_]MT_ : ∀ {n} → (c : Fin (suc n)) → MonoType (suc n) → MonoType n
+⇣[_]MT_ : ∀ {n} → (c : Fin (suc n)) → MonoType (suc n) ⋆ → MonoType n ⋆
 ⇣[ c ]MT MNat = MNat
 ⇣[ c ]MT (mt₁ ⇒ mt₂) = (⇣[ c ]MT mt₁) ⇒ (⇣[ c ]MT mt₂)
 ⇣[ c ]MT tvar x = tvar (⇣[ c ]TV x)
 
-substTV′[_:=_]_ : ∀ {n} → TVar (suc n) → MonoType n → TVar (suc n) → MonoType n
+substTV′[_:=_]_ : ∀ {n} → TVar (suc n) → MonoType n ⋆ → TVar (suc n) → MonoType n ⋆
 substTV′[ this := s ] this = s
 substTV′[ that x := s ] this with tvarProvesSuc x
 ... | _ , refl = tvar this
@@ -175,17 +182,17 @@ substTV′[ this := s ] that k = tvar k -- Drop
 substTV′[ that x := s ] that k with tvarProvesSuc x
 ... | n , refl = ↑[ suc zero , zero ]MT (substTV′[ x := ⇣[ zero ]MT s ] k)
 
-substMT′[_:=_]_ : ∀ {n} → TVar (suc n) → MonoType n → MonoType (suc n) → MonoType n
+substMT′[_:=_]_ : ∀ {n} → TVar (suc n) → MonoType n ⋆ → MonoType (suc n) ⋆ → MonoType n ⋆
 substMT′[ x := s ] MNat = MNat
 substMT′[ x := s ] (mt₁ ⇒ mt₂) = substMT′[ x := s ] mt₁ ⇒ substMT′[ x := s ] mt₂
 substMT′[ x := s ] tvar k = substTV′[ x := s ] k
 
-substPT′[_:=_]_ : ∀ {n} → TVar (suc n) → MonoType n → PolyType (suc n) → PolyType n
+substPT′[_:=_]_ : ∀ {n} → TVar (suc n) → MonoType n ⋆ → PolyType (suc n) ⋆ → PolyType n ⋆
 substPT′[ x := s ] mono mt = mono (substMT′[ x := s ] mt)
 substPT′[ x := s ] all pt =
     all (substPT′[ that x := ↑[ suc zero , zero ]MT s ] pt)
 
-instantiate′ : ∀ {n} → PolyType (suc n) → MonoType n → PolyType n
+instantiate′ : ∀ {n} → PolyType (suc n) ⋆ → MonoType n ⋆ → PolyType n ⋆
 instantiate′ pt m =  substPT′[ this := m ] pt
 
 {-
@@ -289,7 +296,7 @@ subst-lemma-specialcase : ∀ pt mt → ⟦ pt ⟧PolyType (⟦ mt ⟧MonoType [
 subst-lemma-specialcase (mono mt) s x = {!!}
 subst-lemma-specialcase (all pt) s x = λ a → {!!}
 
-open import ReusableDeBrujin (PolyType 0) (λ pt → ⟦_⟧PolyType {0} pt [])
+open import ReusableDeBrujin (PolyType 0 ⋆) (λ pt → ⟦_⟧PolyType {0} pt [])
 
 -- Think of this context as
 -- x : Nat, f : Nat ⇒ Nat ⊢ f x : Nat
@@ -312,12 +319,12 @@ exampleEnv = anHList
 -- Of note: When we descend in a lambda abstraction, the type of the argument is
 -- pushed at the left, so `this` will refer to it. Hence, this are still de
 -- Brujin indexes, and not levels (which work the other way around).
-data Term : {n : ℕ} → Context → PolyType n → Set where
+data Term : {n : ℕ} → Context → PolyType n ⋆ → Set where
   lit : ∀ {Γ} → (v : ℕ) → Term Γ Nat
   var : ∀ {τ Γ} → Var Γ τ → Term Γ τ
   app : ∀ {σ τ Γ} → Term Γ (mono0 (σ ⇒ τ)) → Term Γ (mono σ) → Term Γ (mono τ)
   lam : ∀ {σ τ Γ} → Term (mono σ ∷ Γ) (mono τ) → Term Γ (mono (σ ⇒ τ))
-  tapp : ∀ {n Γ τ} → Term Γ (all τ) → (mt : MonoType n) → Term Γ (instantiate′ τ mt)
+  tapp : ∀ {n Γ τ} → Term Γ (all τ) → (mt : MonoType n ⋆) → Term Γ (instantiate′ τ mt)
 
 ⟦_⟧Term : ∀ {τ Γ} → Term Γ τ → ⟦ Γ ⟧Context → ⟦ τ ⟧PolyType []
 ⟦_⟧Term (var x) ρ   = ⟦ x ⟧Var ρ
