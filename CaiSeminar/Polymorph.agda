@@ -289,12 +289,7 @@ subst-lemma-specialcase : ∀ pt mt → ⟦ pt ⟧PolyType (⟦ mt ⟧MonoType [
 subst-lemma-specialcase (mono mt) s x = {!!}
 subst-lemma-specialcase (all pt) s x = λ a → {!!}
 
-Context : Set
-Context = List (PolyType 0)
-
--- The semantics of a typing context is an environment
-⟦_⟧Context : Context → Set₁
-⟦_⟧Context = HList (λ pt → ⟦_⟧PolyType {0} pt [])
+open import ReusableDeBrujin (PolyType 0) (λ pt → ⟦_⟧PolyType {0} pt [])
 
 -- Think of this context as
 -- x : Nat, f : Nat ⇒ Nat ⊢ f x : Nat
@@ -311,19 +306,6 @@ anHList = lift 42 ∷ lift (λ z → z) ∷ []
 
 exampleEnv  : ⟦ exampleΓ ⟧Context
 exampleEnv = anHList
-
--- Typed de Brujin indexes. `this` is the leftmost variable in the context,
--- `that this` the second, and so on. You can read values as natural numbers,
--- but they carry more information -- a Var Γ τ is both a variable and a proof
--- that it is valid in the given context.
-data Var : Context → PolyType 0 → Set where
-  this : ∀ {Γ τ} → Var (τ ∷ Γ) τ
-  that : ∀ {σ Γ τ} → Var Γ τ → Var (σ ∷ Γ) τ
-
--- ⟦ x ⟧Var is a function that takes an environment ρ and looks x up in it.
-⟦_⟧Var : ∀ {Γ τ} → Var Γ τ → ⟦ Γ ⟧Context → ⟦ τ ⟧PolyType []
-⟦ this ⟧Var   (v ∷ ρ) = v
-⟦ that x ⟧Var (v ∷ ρ) = ⟦ x ⟧Var ρ
 
 -- Representation of terms/typing derivations.
 --
@@ -375,20 +357,6 @@ weakenTerm₁ (var x) = var (weakenVar₁ x)
 weakenTerm₁ (app s t) = app (weakenTerm₁ s) (weakenTerm₁ t)
 weakenTerm₁ (lam t) = lam {!!}
 -}
-
--- Let's generalize weakening, so that we can weaken a term to any bigger context.
--- So first let's define "bigger context".
-
-
--- infix 4 _≼_
--- data _≼_ : (Γ₁ Γ₂ : Context) → Set where
---   ∅ : [] ≼ []
---   keep : ∀ {Γ₁ Γ₂} → (τ : Type) →
---          Γ₁ ≼ Γ₂ →
---          (τ ∷ Γ₁) ≼ (τ ∷ Γ₂)
---   drop : ∀ {Γ₁ Γ₂} → (τ : Type) →
---          Γ₁ ≼ Γ₂ →
---          Γ₁ ≼ (τ ∷ Γ₂)
 
 -- -- Now weakening works.
 -- weaken-var : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Var Γ₁ τ → Var Γ₂ τ
