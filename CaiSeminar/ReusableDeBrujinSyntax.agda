@@ -63,3 +63,7 @@ weaken-var : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Var Γ₁ τ → Var �
 weaken-var (keep τ Γ₁≼Γ₂) this = this
 weaken-var (keep σ Γ₁≼Γ₂) (that x) = that (weaken-var Γ₁≼Γ₂ x)
 weaken-var (drop τ₁ Γ₁≼Γ₂) x = that (weaken-var Γ₁≼Γ₂ x)
+
+≼-refl : ∀ {Γ} → Γ ≼ Γ
+≼-refl {[]} = ∅
+≼-refl {x ∷ Γ} = keep x ≼-refl
