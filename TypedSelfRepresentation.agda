@@ -198,8 +198,10 @@ module TypedSelfRepresentation where
 
     module M = Proof decode
 
+    mainTheorem : ¬ (Σ[ n ∈ ℕ ] (decode n ≡ just M.newFun))
     mainTheorem = M.newFunIsNotDecoded
 
+  {-
   -- For other languages, it's not possible to write a self-typechecker.
   -- However, I conjecture that's not enough. It must be impossible to give a
   -- conservative extension of the language allowing for such a typechecker,
@@ -439,4 +441,5 @@ module TypedSelfRepresentation where
          (encode : ∀ {ℓ t} → Expr {ℓ} t → ℕ)
          where
 -- = encode ((decode n) n)
+-}
 -}
