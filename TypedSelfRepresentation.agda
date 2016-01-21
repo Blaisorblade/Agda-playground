@@ -197,7 +197,9 @@ module TypedSelfRepresentation where
     -- encode the object type of `self-typechecker`, so the *code* for
     -- *object-language Type* must be a member of object-language Type.
     --
-    -- Thanks to Tom Jack on the #IRC dependent channel for pointing that out.
+    -- Thanks to Tom Jack on the #IRC dependent channel for pointing that out,
+    -- and to other participants (in particular mietek and augur) for helpful
+    -- discussions.
 
     -- After running the self-typechecker, we need to compare the type of the
     -- result with ℕ → ℕ. The bit I had missed is that in Agda, normal types
