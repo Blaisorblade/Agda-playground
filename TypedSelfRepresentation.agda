@@ -57,7 +57,7 @@ open import Level
 -- there's some discussion on the issue.
 --
 -- Well, it uses a typed self interpreter (∀
--- τ → Expr τ → τ), and we've argued forever this is a proof of soundness for
+-- τ → Expr τ → ⟦ τ ⟧), and we've argued forever this is a proof of soundness for
 -- the object language in the metalanguage: if you have a (proof) term of type τ
 -- in the object language / typed self-representation, then you also have an
 -- inhabitant for τ. Under Curry-Howard, this becomes indeed a proof of semantic consistency.
@@ -66,7 +66,7 @@ open import Level
 -- coincide? The assumption seems related to Gӧdel's theorems.
 --
 -- I think this corresponds in particular to semantic consistency: the proof
--- theory (Expr T) has a model (T). Instead, Gӧdel's theorem seem to use
+-- theory (Expr T) has a model (⟦ T ⟧). Instead, Gӧdel's theorem seem to use
 -- syntactic consistency. According to Wikipedia
 -- (http://en.wikipedia.org/wiki/Consistency), these consistencies are not the
 -- same thing for incomplete logics, and anything beyond first-order logic is
