@@ -176,10 +176,10 @@ module TypedSelfRepresentation where
     (_≟T_ : Decidable (_≡_ {A = Type}))
 
                             -- A type of expressions.
-    (Expr : Set → Set)
+    (Expr : Type → Set)
                             -- Self-typechecker and interpreter.
-    (self-typechecker : ℕ → Maybe (Σ[ τ ∈ Type ] Expr ⟦ τ ⟧))
-    (self-interp : ∀ {τ} → Expr τ → τ) where
+    (self-typechecker : ℕ → Maybe (Σ[ τ ∈ Type ] Expr τ))
+    (self-interp : ∀ {τ} → Expr τ → ⟦ τ ⟧) where
 
     -- Important note: the theorem is only interesting if decode can be
     -- constructed in the language.
