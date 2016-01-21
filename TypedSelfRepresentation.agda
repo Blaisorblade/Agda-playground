@@ -56,11 +56,12 @@ open import Level
 -- Does the proof relate to soundness? I'm somewhat confused on this, but below
 -- there's some discussion on the issue.
 --
--- Well, it uses a typed self interpreter (∀
--- τ → Expr τ → ⟦ τ ⟧), and we've argued forever this is a proof of soundness for
--- the object language in the metalanguage: if you have a (proof) term of type τ
--- in the object language / typed self-representation, then you also have an
--- inhabitant for τ. Under Curry-Howard, this becomes indeed a proof of semantic consistency.
+-- Well, it uses a typed self interpreter (∀ τ → Expr τ → ⟦ τ ⟧), and we've
+-- argued forever this is a proof of soundness for the object language in the
+-- metalanguage: if you have a (proof) term of type τ in the object language /
+-- typed self-representation (that is, an inhabitant of Expr τ), then you also
+-- have an inhabitant for τ. Under Curry-Howard, this becomes indeed a proof of
+-- semantic consistency.
 --
 -- But what does such a proof mean when the metalanguage and the object language
 -- coincide? The assumption seems related to Gӧdel's theorems.
