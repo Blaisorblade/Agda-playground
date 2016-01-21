@@ -181,8 +181,23 @@ module TypedSelfRepresentation where
     (self-typechecker : ℕ → Maybe (Σ[ τ ∈ Type ] Expr τ))
     (self-interp : ∀ {τ} → Expr τ → ⟦ τ ⟧) where
 
-    -- Important note: the theorem is only interesting if decode can be
-    -- constructed in the language.
+    -- Important note: the theorem is only interesting *if decode can be
+    -- constructed in the language.*
+    --
+    -- So the proof depends on `decode` and its components being expressible in
+    -- the object language.
+    --
+    -- And since we prove that there's no Gödel number for `decode`, the proof
+    -- is only interesting if we expect to encode the full language. People have
+    -- built typed-almost-self-representations where `self-interp` was an
+    -- additional primitive, to be able to escape these problems.
+    --
+    -- In particular, if you can encode the object-language version
+    -- `self-typechecker`, and your encoding is "natural" enough, you'll need to
+    -- encode the object type of `self-typechecker`, so the *code* for
+    -- *object-language Type* must be a member of object-language Type.
+    --
+    -- Thanks to Tom Jack on the #IRC dependent channel for pointing that out.
 
     -- After running the self-typechecker, we need to compare the type of the
     -- result with ℕ → ℕ. The bit I had missed is that in Agda, normal types
