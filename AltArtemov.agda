@@ -100,10 +100,12 @@ infixr 6 _⇒_
 data Type where
   -- Silly base type.
   Nat : Type 0
-  _⇒_ : ∀ {n} → (σ : Type n) → (τ : Type n) → Type n
+  -- Really confused on levels here. But in retrospect, m and n are never
+  -- clearly required to match.
+  _⇒_ : ∀ {m n : ℕ} → (σ : Type m) → (τ : Type n) → Type n
   _/\_ : ∀ {n} → Type n → Type n → Type n
   -- This takes the arguments in the opposite of the order we'd want.
-  typed : ∀ {n Δ Γ} → (τ : Type n) → Term Δ Γ (suc n) τ → Type (suc n)
+  typed : ∀ {n} {Δ} {Γ : Context Δ} → (τ : Type n) → Term Δ Γ (suc n) τ → Type (suc n)
 
 -- Declare sugar in the right order.
 -- I considered using ∶, that is \:, but I don't trust your font.
@@ -121,7 +123,7 @@ data Term where
   -- Usual lambda calculus terms. Nothing going on with levels.
   var : ∀ {n Δ Γ τ} → Var′ Δ Γ n τ → Term′ Δ Γ n τ
   app : ∀ {n Δ Γ σ τ} → Term′ Δ Γ n (σ ⇒ τ) → Term′ Δ Γ n σ → Term′ Δ Γ n τ
-  lam : ∀ {n Δ Γ σ τ} → Term′ (n ∷ Δ) (σ ∷ Γ) n τ → Term′ Δ Γ n (σ ⇒ τ)
+  lam : ∀ {m n Δ Γ} {σ : Type m} {τ : Type n} → Term′ (m ∷ Δ) (σ ∷ Γ) n τ → Term′ Δ Γ n (σ ⇒ τ)
 
   -- Silly base term for integer literals.
   lit : ∀ {Δ Γ} → (v : ℕ) → Term′ Δ Γ 0 Nat
@@ -165,3 +167,20 @@ data Term where
 -- Just an identity function:
 ex0 : ∀ {n} {τ : Type n} → Term′ [] [] n (τ ⇒ τ)
 ex0 = lam (var this)
+
+-- This is the first example in "Example 1" at page 28 of the paper. I don't see
+-- a way to encode this in the system, since I clearly have overly strict levels.
+--
+-- I'm also confused by the binding structure, but since types have no typing
+-- context, this encoding can use arbitrary variables in types.
+ex1 : ∀ {n} {τ : Type (suc n)} → Term′ [] [] (suc n) (((var {Γ = τ ∷ []} this) -:- τ) ⇒ τ)
+-- Problem: the `x` from the derivation is not bound inside `u`, and `u` is generally bound to the wrong context.
+ex1 {n} {τ} = lam (⇓ {u = var {! this!}} (var {!this {suc (suc n)} {[]} {[]} {typed τ (var this)}!}))
+-- y level 2
+-- ⇓ y : level 1
+-- τ level 1
+-- t -:- τ level 2
+-- x -:- τ level 2
+-- y -:- (x -:- τ) level 3
+-- lam (⇓ {!var this!})
+-- (⇓ (var this))
