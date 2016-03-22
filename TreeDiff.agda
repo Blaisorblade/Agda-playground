@@ -55,12 +55,13 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       nothing
 
   patch : Diff → List Item → Maybe (List Item)
-  patch (ins x d) ys = (insert x <=< patch d             ) ys
-  patch (del x d) ys = (             patch d <=< delete x) ys
-  patch (cpy x d) ys = (insert x <=< patch d <=< delete x) ys
-  patch end [] = just []
-  patch end (x ∷ ys) = nothing
+  patch (ins x d)          = insert x <=< patch d
+  patch (del x d)          =              patch d <=< delete x
+  patch (cpy x d)          = insert x <=< patch d <=< delete x
+  patch end       []       = just []
+  patch end       (x ∷ ys) = nothing
 
+  -- *Very* simple cost function
   cost : Diff → ℕ
   cost (ins _ d) = 1 + cost d
   cost (del _ d) = 1 + cost d
