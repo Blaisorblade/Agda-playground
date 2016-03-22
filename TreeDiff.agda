@@ -3,16 +3,17 @@
 --
 module TreeDiff where
 
-open import Data.Bool
+open import Data.Bool hiding (_≟_)
 open import Data.Empty
 open import Data.List
 open import Data.Maybe
-open import Data.Nat hiding (_⊓_)
+open import Data.Nat hiding (_⊓_) renaming (_≟_ to _≟ℕ_)
 open import Data.Product
 open import Relation.Binary
 open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
+open ≡-Reasoning
 
 -- Monadic combinators, specialized to Maybe.
 -- _<=<_ appears in the paper in Sec. 3 (named _⋄_). _>>=_ is inlined there, but I took it out-of-line
@@ -26,6 +27,12 @@ nothing >>= _  = nothing
 infixl 5 _<=<_
 _<=<_ : {A B C : Set} → (B → Maybe C) → (A → Maybe B) → (A → Maybe C)
 _<=<_ {A} {B} {C} g f x = f x >>= g
+
+
+-- Prove a property of a conditional by proving it for both branches
+p-if : ∀ {T : Set} test (P : T → Set) t e → P t → P e → P (if test then t else e)
+p-if true  _ _ _ Pt Pe = Pt
+p-if false _ _ _ Pt Pe = Pe
 
 -- Sec. 3
 module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
@@ -85,8 +92,6 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
     else
       del x (diff xs (y ∷ ys)) ⊓ ins y (diff (x ∷ xs) ys)
 
-  open ≡-Reasoning
-
   lem-delete-first : ∀ x xs → delete x (x ∷ xs) ≡ just xs
   lem-delete-first x xs =
     begin
@@ -96,11 +101,6 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
     ≡⟨⟩
       just xs
     ∎
-
-  -- Prove a property of a conditional by proving it for both branches
-  p-if : ∀ {T : Set} test (P : T → Set) t e → P t → P e → P (if test then t else e)
-  p-if true  _ _ _ Pt Pe = Pt
-  p-if false _ _ _ Pt Pe = Pe
 
   patch-diff-spec : ∀ xs ys → patch (diff xs ys) xs ≡ just ys
 
@@ -186,10 +186,10 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       (ins y (diff (x ∷ xs) ys))
       (patch-diff-spec-lem-del x xs (y ∷ ys)) (patch-diff-spec-lem-ins y (x ∷ xs) ys)
 
-module ForTrees (Label : Set) (a b c : Label)
+module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} _≡_)
   where
   data Tree : Set where
-    node : Label → List Tree → Tree
+    node : (y : Label) → (ys : List Tree) → Tree
 
   data Diff : Set where
     ins : Label × ℕ → Diff → Diff
