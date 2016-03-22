@@ -96,9 +96,10 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       just xs
     ∎
 
-  p-if : ∀ {test} {T : Set} (P : T → Set) (t e : T) → P t → P e → P (if test then t else e)
-  p-if {true } _ _ _ Pt Pe = Pt
-  p-if {false} _ _ _ Pt Pe = Pe
+  -- Prove a property of a conditional by proving it for both branches
+  p-if : ∀ {T : Set} test (P : T → Set) t e → P t → P e → P (if test then t else e)
+  p-if true  _ _ _ Pt Pe = Pt
+  p-if false _ _ _ Pt Pe = Pe
 
   patch-diff-spec : ∀ xs ys → patch (diff xs ys) xs ≡ just ys
 
@@ -178,11 +179,11 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
 
   patch-diff-spec (x ∷ xs) (y ∷ ys) | no ¬p =
     p-if
-    {test = ⌊ suc (cost (diff xs (y ∷ ys))) ≤? suc (cost (diff (x ∷ xs) ys)) ⌋}
-    (λ d → patch d (x ∷ xs) ≡ just (y ∷ ys))
-    _ -- (del x (diff xs (y ∷ ys)))
-    _ -- (ins y (diff (x ∷ xs) ys))
-    (patch-diff-spec-lem-del x xs (y ∷ ys)) (patch-diff-spec-lem-ins y (x ∷ xs) ys)
+      (⌊ suc (cost (diff xs (y ∷ ys))) ≤? suc (cost (diff (x ∷ xs) ys)) ⌋)
+      (λ d → patch d (x ∷ xs) ≡ just (y ∷ ys))
+      (del x (diff xs (y ∷ ys)))
+      (ins y (diff (x ∷ xs) ys))
+      (patch-diff-spec-lem-del x xs (y ∷ ys)) (patch-diff-spec-lem-ins y (x ∷ xs) ys)
 
 module ForTrees (Label : Set) (a b c : Label)
   where
