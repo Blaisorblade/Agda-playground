@@ -184,55 +184,6 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
     _ -- (ins y (diff (x ∷ xs) ys))
     (patch-diff-spec-lem-del x xs (y ∷ ys)) (patch-diff-spec-lem-ins y (x ∷ xs) ys)
 
-  -- Original impleementation of this clause. This version failed termination checking.
-  {-
-    begin
-      patch (diff (x ∷ xs) (y ∷ ys)) (x ∷ xs)
-    ≡⟨ patch-diff-spec-lem1 _ _ _ _ ⟩
-      just (y ∷ ys)
-    ∎
-  -}
-  patch-diff-spec-lem1 : ∀ x y xs ys → patch (diff (x ∷ xs) (y ∷ ys)) (x ∷ xs) ≡ just (y ∷ ys)
-  patch-diff-spec-lem1 x y xs ys with x ≟ y
-  patch-diff-spec-lem1 x .x xs ys | yes refl =
-    begin
-      (insert x <=< patch (diff xs ys) <=< delete x) (x ∷ xs)
-    ≡⟨⟩
-      (if ⌊ x ≟ x ⌋ then just xs else nothing) >>=
-      (λ x₁ → patch (diff xs ys) x₁ >>= (λ ys₁ → just (x ∷ ys₁)))
-    ≡⟨ cong
-        (λ □ →
-          (if □ then just xs else nothing) >>=
-          (λ x₁ → patch (diff xs ys) x₁ >>= (λ ys₁ → just (x ∷ ys₁))))
-        (==refl x)
-     ⟩
-      (if true then just xs else nothing) >>=
-      (λ x₁ → patch (diff xs ys) x₁ >>= (λ ys₁ → just (x ∷ ys₁)))
-    ≡⟨⟩
-      patch (diff xs ys) xs >>= insert x
-    ≡⟨ patch-diff-spec-lem-cong-insert x xs ys ⟩
-      just (x ∷ ys)
-    ∎
-  patch-diff-spec-lem1 x y xs ys | no ¬p =
-    p-if
-    {test = ⌊ suc (cost (diff xs (y ∷ ys))) ≤? suc (cost (diff (x ∷ xs) ys)) ⌋}
-    (λ d → patch d (x ∷ xs) ≡ just (y ∷ ys))
-    _ -- (del x (diff xs (y ∷ ys)))
-    _ -- (ins y (diff (x ∷ xs) ys))
-    (patch-diff-spec-lem-del x xs (y ∷ ys)) (patch-diff-spec-lem-ins y (x ∷ xs) ys)
-
-{-
-patch
-(if ⌊ x ≟ y ⌋ then cpy x (diff xs ys) else
- (if
-  ⌊
-  (suc (cost (diff xs (y ∷ ys))) ≤? suc (cost (diff (x ∷ xs) ys))
-   | cost (diff xs (y ∷ ys)) ≤? cost (diff (x ∷ xs) ys))
-  ⌋
-  then del x (diff xs (y ∷ ys)) else ins y (diff (x ∷ xs) ys)))
-(x ∷ xs)
--}
-
 module ForTrees (Label : Set) (a b c : Label)
   where
   data Tree : Set where
