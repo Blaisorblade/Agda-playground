@@ -24,7 +24,7 @@ open ≡-Reasoning
 -- _<=<_ appears in the paper in Sec. 3 (named _⋄_). _>>=_ is inlined there, but I took it out-of-line
 -- because with-clauses are handled badly during equational reasoning.
 
-infixl 5 _<=<_
+infixr 5 _<=<_
 _<=<_ : {A B C : Set} → (B → Maybe C) → (A → Maybe B) → (A → Maybe C)
 _<=<_ {A} {B} {C} g f x with f x
 ... | just y = g y
@@ -165,7 +165,7 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   patch-diff-spec [] (y ∷ ys) rewrite patch-diff-spec [] ys = refl
   patch-diff-spec (x ∷ xs) [] rewrite patch-diff-spec-lem-del x xs [] = refl
   patch-diff-spec (x ∷ xs) (y ∷ ys) with x ≟ y
-  patch-diff-spec (x ∷ xs) (.x ∷ ys) | yes refl rewrite lem-delete-first x xs | patch-diff-spec xs ys = refl
+  patch-diff-spec (x ∷ xs) (.x ∷ ys) | yes refl rewrite patch-diff-spec-lem-del x xs ys = refl
   patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ with (cost (diff xs (y ∷ ys)) ≤? cost (diff (x ∷ xs) ys))
   patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ | yes _ rewrite patch-diff-spec-lem-del x xs       (y ∷ ys) = refl
   patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ | no  _ rewrite patch-diff-spec           (x ∷ xs) ys       = refl
