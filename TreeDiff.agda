@@ -1,5 +1,7 @@
 --
--- Reimplementation of "Type-Safe Diff for Families of Datatypes"
+-- Reimplementation of "Type-Safe Diff for Families of Datatypes", tested with
+-- Agda 2.4.0.2 and 2.4.2.4 (ahem, not systematically, I'm working on this on
+-- two computers with different versions).
 --
 -- I added proofs of patch-diff-spec written on my own; however, the one for
 -- Sec. 4 currently fails termination checking, because the relevant termination
