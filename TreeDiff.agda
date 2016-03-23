@@ -64,6 +64,15 @@ module IlcListDIff (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   -- In Diff and here, too many arguments are explicit, so that the generated pattern matches show what is going on.
   patch : ∀ xs ys → Diff xs ys → List Item
   patch xs .(y ∷ ys) (ins .xs ys y d) = y ∷ patch xs ys d
+
+  -- In these two cases, we don't call delete and compare x with itself; the
+  -- types ensure that we're trying to delete the actual head of the list, here
+  -- pattern matching shows that.
+  --
+  -- So instead of writing delete x xs, we can write delete x (x ∷ xs) and
+  -- simplify that immediately to xs :-). In the proof, this avoids needing the
+  -- ==refl and lem-delete-first lemmas (unlike in module ForLists below, which
+  -- doesn't use indexed changes).
   patch .(x ∷ xs) ys (del xs .ys x d) = patch xs ys d
   patch .(x ∷ xs) .(x ∷ ys) (cpy xs ys x d) = x ∷ patch xs ys d
   patch .[] .[] end = []
@@ -161,143 +170,20 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       del x (diff xs (y ∷ ys)) ⊓ ins y (diff (x ∷ xs) ys)
 
   lem-delete-first : ∀ x xs → delete x (x ∷ xs) ≡ just xs
-  lem-delete-first x xs =
-    begin
-      (if ⌊ x ≟ x ⌋ then just xs else nothing)
-    ≡⟨ cong-step (==refl x) ⟩
-      (if true then just xs else nothing)
-    ≡⟨⟩
-      just xs
-    ∎
-    where
-      -- Here and below, cong-step local lemmas are simply applications of
-      -- congruence done using rewrite instead of cong.
-      --
-      -- The source and target terms appear both in result type of cong-step and
-      -- in the equational reasoning steps.
-      --
-      cong-step :
-            ⌊ x ≟ x ⌋ ≡ true
-        → ----------------------------------------------------------------------
-            (if ⌊ x ≟ x ⌋ then just xs else nothing of-type Maybe (List Item))
-        ≡
-            (if true      then just xs else nothing)
-      cong-step p rewrite p = refl
+  lem-delete-first x xs rewrite ==refl x = refl
 
   patch-diff-spec : ∀ xs ys → patch (diff xs ys) xs ≡ just ys
-
   patch-diff-spec-lem-del : ∀ x xs ys → patch (del x (diff xs ys)) (x ∷ xs) ≡ just ys
-  patch-diff-spec-lem-ins : ∀ y xs ys → patch (ins y (diff xs ys)) xs ≡ just (y ∷ ys)
-  patch-diff-spec-lem-cong-insert : ∀ x xs ys → patch (diff xs ys) xs >>= insert x ≡ just (x ∷ ys)
-
-  patch-diff-spec-lem-cong-insert x xs ys =
-    begin
-      patch (diff xs ys) xs >>= insert x
-    ≡⟨ cong-step (patch-diff-spec xs ys) ⟩
-      just ys >>= insert x
-    ≡⟨⟩
-      insert x ys
-    ≡⟨⟩
-      just (x ∷ ys)
-    ∎
-    where
-      cong-step :
-                  patch (diff xs ys) xs
-                ≡
-                  just ys
-                → -------------------------------------------------------------
-                  patch (diff xs ys) xs >>= insert x
-                ≡
-                  just ys               >>= insert x
-      cong-step p rewrite p = refl
-
-
-  patch-diff-spec-lem-del x xs ys =
-    begin
-      patch (del x (diff xs ys)) (x ∷ xs)
-    ≡⟨⟩
-      delete x (x ∷ xs) >>= patch (diff xs ys)
-    ≡⟨ cong-step (lem-delete-first x xs) ⟩
-      just xs >>= patch (diff xs ys)
-    ≡⟨⟩
-      patch (diff xs ys) xs
-    ≡⟨ patch-diff-spec xs ys ⟩
-      just ys
-    ∎
-    where
-      cong-step :
-            delete x (x ∷ xs)
-          ≡
-            just xs
-          → -------------------------------------------
-            delete x (x ∷ xs) >>= patch (diff xs ys)
-          ≡
-            just xs           >>= patch (diff xs ys)
-      cong-step p rewrite p = refl
-
-  patch-diff-spec-lem-ins y xs ys =
-    begin
-      patch (ins y (diff xs ys)) xs
-    ≡⟨⟩
-      patch (diff xs ys) xs >>= insert y
-    ≡⟨ patch-diff-spec-lem-cong-insert y xs ys ⟩
-      just (y ∷ ys)
-    ∎
+  patch-diff-spec-lem-del x xs ys rewrite lem-delete-first x xs = patch-diff-spec xs ys
 
   patch-diff-spec [] [] = refl
-  patch-diff-spec [] (y ∷ ys) =
-    begin
-      patch (diff [] (y ∷ ys)) []
-    ≡⟨⟩
-      patch (ins y (diff [] ys)) []
-    ≡⟨ patch-diff-spec-lem-ins y [] ys ⟩
-      just (y ∷ ys)
-    ∎
-  patch-diff-spec (x ∷ xs) [] =
-    begin
-      patch (diff (x ∷ xs) []) (x ∷ xs)
-    ≡⟨⟩
-      patch (del x (diff xs [])) (x ∷ xs)
-    ≡⟨ patch-diff-spec-lem-del x xs [] ⟩
-      just []
-    ∎
-  -- Most complex clause.
+  patch-diff-spec [] (y ∷ ys) rewrite patch-diff-spec [] ys = refl
+  patch-diff-spec (x ∷ xs) [] rewrite patch-diff-spec-lem-del x xs [] = refl
   patch-diff-spec (x ∷ xs) (y ∷ ys) with x ≟ y
-  patch-diff-spec (x ∷ xs) (.x ∷ ys) | yes refl =
-    begin
-      (insert x <=< patch (diff xs ys) <=< delete x) (x ∷ xs)
-    ≡⟨⟩
-      (if ⌊ x ≟ x ⌋ then just xs else nothing) >>=
-      patch (diff xs ys) >>= insert x
-    ≡⟨ cong-step (==refl x) ⟩
-      (if true then just xs else nothing) >>=
-      patch (diff xs ys) >>= insert x
-    ≡⟨⟩
-      patch (diff xs ys) xs >>= insert x
-    ≡⟨ patch-diff-spec-lem-cong-insert x xs ys ⟩
-      just (x ∷ ys)
-    ∎
-    where
-      cong-step :
-                  ⌊ x ≟ x ⌋
-                ≡
-                  true
-                → -------------------------------------------
-                  (if ⌊ x ≟ x ⌋ then just xs else nothing) >>=
-                  patch (diff xs ys) >>= insert x
-                ≡
-                  (if true      then just xs else nothing) >>=
-                  patch (diff xs ys) >>= insert x
-      cong-step p rewrite p = refl
-
-  patch-diff-spec (x ∷ xs) (y ∷ ys) | no ¬p =
-    p-if
-      (⌊ suc (cost (diff xs (y ∷ ys))) ≤? suc (cost (diff (x ∷ xs) ys)) ⌋)
-      (λ d → patch d (x ∷ xs) ≡ just (y ∷ ys))
-      (del x (diff xs (y ∷ ys)))
-      (ins y (diff (x ∷ xs) ys))
-      (patch-diff-spec-lem-del x xs (y ∷ ys))
-      (patch-diff-spec-lem-ins y (x ∷ xs) ys)
+  patch-diff-spec (x ∷ xs) (.x ∷ ys) | yes refl rewrite patch-diff-spec-lem-del x xs ys = refl
+  patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ with (cost (diff xs (y ∷ ys)) ≤? cost (diff (x ∷ xs) ys))
+  patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ | yes _ rewrite patch-diff-spec-lem-del x xs       (y ∷ ys) = refl
+  patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ | no  _ rewrite patch-diff-spec           (x ∷ xs) ys       = refl
 
 -- Sec. 4
 module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} _≡_) where
@@ -382,36 +268,7 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
       (del (x , length xs) (diff (xs ++ xss) (node y ys ∷ yss)))
 
   lem-delete-first : ∀ x xs xss → delete (x , length xs) (node x xs ∷ xss) ≡ just (xs ++ xss)
-  lem-delete-first x xs xss =
-    begin
-      delete (x , length xs) (node x xs ∷ xss)
-    ≡⟨⟩
-      (if (x , length xs) == (x , length xs) then
-        just (xs ++ xss)
-      else
-        nothing)
-    ≡⟨ cong-step (==refl x (length xs)) ⟩
-      (if true then
-        just (xs ++ xss)
-      else
-        nothing)
-    ≡⟨⟩
-      just (xs ++ xss)
-    ∎
-    where
-      cong-step :
-                  ((x , length xs) == (x , length xs)) ≡ true
-                → -------------------------------------------
-                  (if (x , length xs) == (x , length xs) then
-                    just (xs ++ xss)
-                  else
-                    nothing of-type Maybe (List Tree))
-                ≡
-                  (if true then
-                    just (xs ++ xss)
-                  else
-                    nothing)
-      cong-step p rewrite p = refl
+  lem-delete-first x xs xss rewrite ==refl x (length xs) = refl
 
   -- XXX belongs in Data.List.Properties
   splitAt-++ : ∀ {ℓ} {A : Set ℓ} (xs ys : List A) → splitAt (length xs) (xs ++ ys) ≡ (xs , ys)
@@ -419,119 +276,30 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
   splitAt-++ (x ∷ xs) ys rewrite splitAt-++ xs ys = refl
 
   lem-insert-first : ∀ y ys yss → insert (y , length ys) (ys ++ yss) ≡ just (node y ys ∷ yss)
-  lem-insert-first y ys yss rewrite splitAt-++ ys yss =
-    begin
-      (if ⌊ length ys ≟ℕ length ys ⌋ then
-        just (node y ys ∷ yss)
-      else
-        nothing)
-    ≡⟨ cong (λ □ →
-               if □ then
-                  just (node y ys ∷ yss)
-               else
-                 nothing)
-            (≟ℕ-refl (length ys))⟩
-      (if true then
-        just (node y ys ∷ yss)
-      else
-        nothing)
-    ≡⟨⟩
-      just (node y ys ∷ yss)
-    ∎
+  lem-insert-first y ys yss rewrite splitAt-++ ys yss | ≟ℕ-refl (length ys) = refl
 
   {-# NO_TERMINATION_CHECK #-}
   patch-diff-spec : ∀ xss yss → patch (diff xss yss) xss ≡ just yss
   patch-diff-spec-rest : ∀ x xs xss y ys yss → patch (diff-rest x xs xss y ys yss) (node x xs ∷ xss) ≡ just (node y ys ∷ yss)
 
   patch-diff-spec-lem-ins : ∀ xss y ys yss → patch (ins (y , length ys) (diff xss (ys ++ yss))) xss ≡ just (node y ys ∷ yss)
-  patch-diff-spec-lem-ins xss y ys yss =
-    begin
-      patch (ins (y , length ys) (diff xss (ys ++ yss))) xss
-    ≡⟨⟩
-      patch (diff xss (ys ++ yss)) xss >>=
-      insert (y , length ys)
-    ≡⟨ cong (λ □ → □ >>= insert (y , length ys)) (patch-diff-spec xss (ys ++ yss))⟩
-      insert (y , length ys) (ys ++ yss)
-    ≡⟨ lem-insert-first y ys yss ⟩
-      just (node y ys ∷ yss)
-    ∎
+  patch-diff-spec-lem-ins xss y ys yss rewrite patch-diff-spec xss (ys ++ yss) | lem-insert-first y ys yss = refl
 
   patch-diff-spec-lem-del : ∀ x xs xss yss → patch (del (x , length xs) (diff (xs ++ xss) yss)) (node x xs ∷ xss) ≡ just yss
-  patch-diff-spec-lem-del x xs xss yss =
-    begin
-      patch (del (x , length xs) (diff (xs ++ xss) yss)) (node x xs ∷ xss)
-    ≡⟨⟩
-      delete (x , length xs) (node x xs ∷ xss) >>=
-      patch (diff (xs ++ xss) yss)
-    ≡⟨ cong (λ □ → □ >>= patch (diff (xs ++ xss) yss)) (lem-delete-first x xs xss) ⟩
-      patch (diff (xs ++ xss) yss) (xs ++ xss)
-    ≡⟨ patch-diff-spec (xs ++ xss) yss ⟩
-      just yss
-    ∎
+  patch-diff-spec-lem-del x xs xss yss rewrite lem-delete-first x xs xss | patch-diff-spec (xs ++ xss) yss = refl
 
   patch-diff-spec [] [] = refl
   patch-diff-spec [] (node x xs ∷ yss) = patch-diff-spec-lem-ins [] x xs yss
   patch-diff-spec (node x xs ∷ xss) [] = patch-diff-spec-lem-del x xs xss []
   patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) with x ≟ℓ y | length xs ≟ℕ length ys
-  patch-diff-spec (node x xs ∷ xss) (node .x ys ∷ yss) | yes refl | yes length-xs≟ℕlength-ys =
-    begin
-      (insert (x , length xs) <=<
-       patch (diff (xs ++ xss) (ys ++ yss))
-       <=< delete (x , length xs))
-      (node x xs ∷ xss)
-    ≡⟨⟩
-      delete (x , length xs) (node x xs ∷ xss) >>=
-        patch (diff (xs ++ xss) (ys ++ yss)) >>=
-        insert (x , length xs)
-    ≡⟨⟩
-      (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>=
-        patch (diff (xs ++ xss) (ys ++ yss)) >>=
-        insert (x , length xs)
-    ≡⟨ cong-step-1 (==refl x (length xs)) ⟩
-      (if true then just (xs ++ xss) else nothing) >>=
-          patch (diff (xs ++ xss) (ys ++ yss)) >>=
-          insert (x , length xs)
-    ≡⟨⟩
-      patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
-      insert (x , length xs)
-    ≡⟨ cong-step-2 length-xs≟ℕlength-ys ⟩
-      patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
-      insert (x , length ys)
-    ≡⟨ patch-diff-spec-lem-ins (xs ++ xss) x ys yss ⟩
-      just (node x ys ∷ yss)
-    ∎
-    where
-      cong-step-1 :
-                  ((x , length xs) == (x , length xs)) ≡ true
-                → -------------------------------------------
-                  (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>=
-                    patch (diff (xs ++ xss) (ys ++ yss)) >>=
-                    insert (x , length xs)
-                ≡
-                  (if true then just (xs ++ xss) else nothing) >>=
-                    patch (diff (xs ++ xss) (ys ++ yss)) >>=
-                    insert (x , length xs)
-      cong-step-1 p rewrite p = refl
-
-      cong-step-2 :
-                  (length xs ≡ length ys)
-                → -------------------------------------------
-                  patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
-                  insert (x , length xs)
-                ≡
-                  patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
-                  insert (x , length ys)
-      cong-step-2 p rewrite p = refl
+  patch-diff-spec (node x xs ∷ xss) (node .x ys ∷ yss) | yes refl | yes length-xs≟ℕlength-ys
+    rewrite ==refl x (length xs) | length-xs≟ℕlength-ys =
+      patch-diff-spec-lem-ins (xs ++ xss) x ys yss
 
   patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | yes _ | no _ = patch-diff-spec-rest x xs xss y ys yss
   patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no _ | yes _ = patch-diff-spec-rest x xs xss y ys yss
   patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no _ | no _ = patch-diff-spec-rest x xs xss y ys yss
 
-  patch-diff-spec-rest x xs xss y ys yss =
-    p-if
-      ⌊ (suc (cost (diff (node x xs ∷ xss) (ys ++ yss)))) ≤? (suc (cost (diff (xs ++ xss) (node y ys ∷ yss)))) ⌋
-      (λ d → patch d (node x xs ∷ xss) ≡ just (node y ys ∷ yss))
-      (ins (y , length ys) (diff (node x xs ∷ xss) (ys ++ yss)))
-      (del (x , length xs) (diff (xs ++ xss) (node y ys ∷ yss)))
-      (patch-diff-spec-lem-ins (node x xs ∷ xss) y ys yss)
-      (patch-diff-spec-lem-del x xs xss (node y ys ∷ yss))
+  patch-diff-spec-rest x xs xss y ys yss with (cost (diff (node x xs ∷ xss) (ys ++ yss))) ≤? (cost (diff (xs ++ xss) (node y ys ∷ yss)))
+  patch-diff-spec-rest x xs xss y ys yss | yes p = patch-diff-spec-lem-ins (node x xs ∷ xss) y ys yss
+  patch-diff-spec-rest x xs xss y ys yss | no ¬p = patch-diff-spec-lem-del x xs xss (node y ys ∷ yss)
