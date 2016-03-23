@@ -110,7 +110,7 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   ==refl : ∀ x → x == x ≡ true
   ==refl x with x ≟ x
   ==refl x | yes refl = refl
-  ... | no ¬p = ⊥-elim (¬p refl)
+  ... | no ¬x≡x = ⊥-elim (¬x≡x refl)
 
   data Diff : Set where
     ins : Item → Diff → Diff
@@ -310,10 +310,11 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
   ≟ℕ-refl n | no ¬p = ⊥-elim (¬p refl)
 
   ==refl : ∀ x xn → (x , xn) == (x , xn) ≡ true
-  ==refl x xn with x ≟ℓ x | xn ≟ℕ xn
+  ==refl x xn with x ≟ℓ x
+  ==refl x xn | no ¬x≟ℓx = ⊥-elim (¬x≟ℓx refl)
+  ==refl x xn | yes refl with xn ≟ℕ xn
   ==refl x xn | yes refl | yes refl = refl
-  ==refl x xn | yes p | no ¬p = ⊥-elim (¬p refl)
-  ... | no ¬p | q = ⊥-elim (¬p refl)
+  ==refl x xn | yes refl | no ¬xn≟ℕxn = ⊥-elim (¬xn≟ℕxn refl)
 
   data Tree : Set where
     node : (x : Label) → (xs : List Tree) → Tree
