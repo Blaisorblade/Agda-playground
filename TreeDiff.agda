@@ -33,18 +33,6 @@ infixr 5 _<=<_
 _<=<_ : {A B C : Set} → (B → Maybe C) → (A → Maybe B) → (A → Maybe C)
 _<=<_ {A} {B} {C} g f x = f x >>= g
 
-
--- Prove a property of a conditional by proving it for both branches
-p-if : ∀ {T : Set} test (P : T → Set) t e → P t → P e → P (if test then t else e)
-p-if true  _ _ _ Pt Pe = Pt
-p-if false _ _ _ Pt Pe = Pe
-
--- From https://lists.chalmers.se/pipermail/agda/2012/004357.html:
-type-signature : ∀ {a} (A : Set a) → A → A
-type-signature A x = x
-
-syntax type-signature A x = x of-type A
-
 -- Development in Sec. 3, adapted so that changes are indexed by source and
 -- destination. The main advantage is that this allows operations to not be
 -- partial, and makes everything closer to what makes sense in ILC.
