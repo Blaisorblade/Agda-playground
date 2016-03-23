@@ -1,6 +1,10 @@
 --
 -- Reimplementation of "Type-Safe Diff for Families of Datatypes"
 --
+-- I added proofs of patch-diff-spec written on my own; however, the one for
+-- Sec. 4 currently fails termination checking, because the relevant termination
+-- measure is far from obvious to Agda.
+
 module TreeDiff where
 
 open import Data.Bool hiding (_≟_)
@@ -186,10 +190,24 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       (ins y (diff (x ∷ xs) ys))
       (patch-diff-spec-lem-del x xs (y ∷ ys)) (patch-diff-spec-lem-ins y (x ∷ xs) ys)
 
-module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} _≡_)
-  where
+-- Sec. 4
+module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} _≡_) where
+  _==_ : (Label × ℕ) → (Label × ℕ) → Bool
+  (x , xn) == (y , yn) = ⌊ x ≟ℓ y ⌋ ∧ ⌊ xn ≟ℕ yn ⌋
+
+  ≟ℕ-refl : ∀ n → ⌊ n ≟ℕ n ⌋ ≡ true
+  ≟ℕ-refl n with n ≟ℕ n
+  ≟ℕ-refl n | yes p = refl
+  ≟ℕ-refl n | no ¬p = ⊥-elim (¬p refl)
+
+  ==refl : ∀ x xn → (x , xn) == (x , xn) ≡ true
+  ==refl x xn with x ≟ℓ x | xn ≟ℕ xn
+  ==refl x xn | yes refl | yes refl = refl
+  ==refl x xn | yes p | no ¬p = ⊥-elim (¬p refl)
+  ... | no ¬p | q = ⊥-elim (¬p refl)
+
   data Tree : Set where
-    node : (y : Label) → (ys : List Tree) → Tree
+    node : (x : Label) → (xs : List Tree) → Tree
 
   data Diff : Set where
     ins : Label × ℕ → Diff → Diff
@@ -197,13 +215,188 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
     cpy : Label × ℕ → Diff → Diff
     end : Diff
 
+  -- *Very* simple cost function
+  cost : Diff → ℕ
+  cost (ins _ d) = 1 + cost d
+  cost (del _ d) = 1 + cost d
+  cost (cpy _ d) = 1 + cost d
+  cost end       = 0
+
+  _⊓_ : Diff → Diff → Diff
+  dx ⊓ dy =
+    if ⌊ cost dx ≤? cost dy ⌋ then
+      dx
+    else
+      dy
+
   ex1 = node a (node b [] ∷ node c [] ∷ node c [] ∷ [])
 
+  insert : Label × ℕ → List Tree → Maybe (List Tree)
+  insert (x , n) yss with splitAt n yss
+  ... | (ys , yss′) =
+    if ⌊ length ys ≟ℕ n ⌋ then
+      just ((node x ys) ∷ yss′)
+    else
+      nothing
+
+  delete : Label × ℕ → List Tree → Maybe (List Tree)
+  delete (x , n) [] = nothing
+  delete (x , n) (node y ys ∷ yss) =
+    if (x , n) == (y , length ys) then
+      just (ys ++ yss)
+    else
+      nothing
+
   patch : Diff → List Tree → Maybe (List Tree)
-  patch = {!!}
+  patch (ins x d)          = insert x <=< patch d
+  patch (del x d)          =              patch d <=< delete x
+  patch (cpy x d)          = insert x <=< patch d <=< delete x
+  patch end       []       = just []
+  patch end       (x ∷ ys) = nothing
 
+  {-# NO_TERMINATION_CHECK #-}
+
+  diff-rest : Label → List Tree → List Tree → Label → List Tree → List Tree → Diff
   diff : List Tree → List Tree → Diff
-  diff = {!!}
+  diff [] [] = end
+  diff [] (node y ys ∷ yss) = ins (y , length ys) (diff [] (ys ++ yss))
+  diff (node x xs ∷ xss) [] = del (x , length xs) (diff (xs ++ xss) [])
+  diff (node x xs ∷ xss) (node y ys ∷ yss) =
+    if (x , length xs) == (y , length ys) then
+      cpy (x , length xs) (diff (xs ++ xss) (ys ++ yss))
+    else
+      diff-rest x xs xss y ys yss
 
-  patch-diff-spec : ∀ xs ys → patch (diff xs ys) xs ≡ just ys
-  patch-diff-spec = {!!}
+  diff-rest x xs xss y ys yss =
+      (ins (y , length ys) (diff (node x xs ∷ xss) (ys ++ yss))) ⊓
+      (del (x , length xs) (diff (xs ++ xss) (node y ys ∷ yss)))
+
+  lem-delete-first : ∀ x xs xss → delete (x , length xs) (node x xs ∷ xss) ≡ just (xs ++ xss)
+  lem-delete-first x xs xss =
+    begin
+      delete (x , length xs) (node x xs ∷ xss)
+    ≡⟨⟩
+      (if (x , length xs) == (x , length xs) then
+        just (xs ++ xss)
+      else
+        nothing)
+    ≡⟨ cong (λ □ → if □ then just (xs ++ xss) else nothing)
+            (==refl x (length xs)) ⟩
+      (if true then
+        just (xs ++ xss)
+      else
+        nothing)
+    ≡⟨⟩
+      just (xs ++ xss)
+    ∎
+
+  -- XXX belongs in Data.List.Properties
+  splitAt-++ : ∀ {ℓ} {A : Set ℓ} (xs ys : List A) → splitAt (length xs) (xs ++ ys) ≡ (xs , ys)
+  splitAt-++ [] ys = refl
+  splitAt-++ (x ∷ xs) ys rewrite splitAt-++ xs ys = refl
+
+  lem-insert-first : ∀ y ys yss → insert (y , length ys) (ys ++ yss) ≡ just (node y ys ∷ yss)
+  lem-insert-first y ys yss rewrite splitAt-++ ys yss =
+    begin
+      (if ⌊ length ys ≟ℕ length ys ⌋ then
+        just (node y ys ∷ yss)
+      else
+        nothing)
+    ≡⟨ cong (λ □ →
+               if □ then
+                  just (node y ys ∷ yss)
+               else
+                 nothing)
+            (≟ℕ-refl (length ys))⟩
+      (if true then
+        just (node y ys ∷ yss)
+      else
+        nothing)
+    ≡⟨⟩
+      just (node y ys ∷ yss)
+    ∎
+
+  {-# NO_TERMINATION_CHECK #-}
+  patch-diff-spec : ∀ xss yss → patch (diff xss yss) xss ≡ just yss
+  patch-diff-spec-rest : ∀ x xs xss y ys yss → patch (diff-rest x xs xss y ys yss) (node x xs ∷ xss) ≡ just (node y ys ∷ yss)
+
+  patch-diff-spec-lem-ins : ∀ xss y ys yss → patch (ins (y , length ys) (diff xss (ys ++ yss))) xss ≡ just (node y ys ∷ yss)
+  patch-diff-spec-lem-ins xss y ys yss =
+    begin
+      patch (ins (y , length ys) (diff xss (ys ++ yss))) xss
+    ≡⟨⟩
+      patch (diff xss (ys ++ yss)) xss >>=
+      insert (y , length ys)
+    ≡⟨ cong (λ □ → □ >>= insert (y , length ys)) (patch-diff-spec xss (ys ++ yss))⟩
+      insert (y , length ys) (ys ++ yss)
+    ≡⟨ lem-insert-first y ys yss ⟩
+      just (node y ys ∷ yss)
+    ∎
+
+  patch-diff-spec-lem-del : ∀ x xs xss yss → patch (del (x , length xs) (diff (xs ++ xss) yss)) (node x xs ∷ xss) ≡ just yss
+  patch-diff-spec-lem-del x xs xss yss =
+    begin
+      patch (del (x , length xs) (diff (xs ++ xss) yss)) (node x xs ∷ xss)
+    ≡⟨⟩
+      delete (x , length xs) (node x xs ∷ xss) >>=
+      patch (diff (xs ++ xss) yss)
+    ≡⟨ cong (λ □ → □ >>= patch (diff (xs ++ xss) yss)) (lem-delete-first x xs xss) ⟩
+      patch (diff (xs ++ xss) yss) (xs ++ xss)
+    ≡⟨ patch-diff-spec (xs ++ xss) yss ⟩
+      just yss
+    ∎
+
+  patch-diff-spec [] [] = refl
+  patch-diff-spec [] (node x xs ∷ yss) = patch-diff-spec-lem-ins [] x xs yss
+  patch-diff-spec (node x xs ∷ xss) [] = patch-diff-spec-lem-del x xs xss []
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) with x ≟ℓ y | length xs ≟ℕ length ys
+  patch-diff-spec (node x xs ∷ xss) (node .x ys ∷ yss) | yes refl | yes length-xs≟ℕlength-ys =
+    begin
+      (insert (x , length xs) <=<
+       patch (diff (xs ++ xss) (ys ++ yss))
+       <=< delete (x , length xs))
+      (node x xs ∷ xss)
+    ≡⟨⟩
+      delete (x , length xs) (node x xs ∷ xss) >>= (λ x₁ →
+        patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
+        insert (x , length xs))
+    ≡⟨⟩
+      (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>= (λ x₁ →
+        patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
+        insert (x , length xs))
+    ≡⟨ cong
+       (λ □ →
+         (if □ then just (xs ++ xss) else nothing) >>= (λ x₁ →
+           patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
+           insert (x , length xs)))
+       (==refl x (length xs))
+    ⟩
+      (if true then just (xs ++ xss) else nothing) >>=
+        (λ x₁ →
+           patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
+           insert (x , length xs))
+    ≡⟨⟩
+      patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
+      insert (x , length xs)
+    ≡⟨ cong (λ □ →
+               patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
+               insert (x , □))
+            length-xs≟ℕlength-ys
+    ⟩
+      patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
+      insert (x , length ys)
+    ≡⟨ patch-diff-spec-lem-ins (xs ++ xss) x ys yss ⟩
+      just (node x ys ∷ yss)
+    ∎
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | yes _ | no _ = patch-diff-spec-rest x xs xss y ys yss
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no _ | yes _ = patch-diff-spec-rest x xs xss y ys yss
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no _ | no _ = patch-diff-spec-rest x xs xss y ys yss
+
+  patch-diff-spec-rest x xs xss y ys yss =
+    p-if
+      ⌊ (suc (cost (diff (node x xs ∷ xss) (ys ++ yss)))) ≤? (suc (cost (diff (xs ++ xss) (node y ys ∷ yss)))) ⌋
+      (λ d → patch d (node x xs ∷ xss) ≡ just (node y ys ∷ yss))
+      (ins (y , length ys) (diff (node x xs ∷ xss) (ys ++ yss)))
+      (del (x , length xs) (diff (xs ++ xss) (node y ys ∷ yss)))
+      (patch-diff-spec-lem-ins (node x xs ∷ xss) y ys yss)
+      (patch-diff-spec-lem-del x xs xss (node y ys ∷ yss))
