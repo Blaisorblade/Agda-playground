@@ -13,6 +13,7 @@ open import Data.List
 open import Data.Maybe
 open import Data.Nat hiding (_⊓_) renaming (_≟_ to _≟ℕ_)
 open import Data.Product
+open import Function
 open import Relation.Binary
 open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
@@ -44,6 +45,62 @@ type-signature A x = x
 
 syntax type-signature A x = x of-type A
 
+-- Development in Sec. 3, adapted so that changes are indexed by source and
+-- destination. The main advantage is that this allows operations to not be
+-- partial, and makes everything closer to what makes sense in ILC.
+--
+-- This simplifies the proof. However, patch-diff-spec is especially shortened
+-- by doing the proof in a more concise way.
+module IlcListDIff (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
+  _==_ : Item → Item → Bool
+  x == y = ⌊ x ≟ y ⌋
+
+  data Diff : List Item → List Item → Set where
+    ins : ∀ xs ys → (y : Item) → Diff xs ys → Diff xs (y ∷ ys)
+    del : ∀ xs ys → (x : Item) → Diff xs ys → Diff (x ∷ xs) ys
+    cpy : ∀ xs ys → (x : Item) → Diff xs ys → Diff (x ∷ xs) (x ∷ ys)
+    end : Diff [] []
+
+  -- In Diff and here, too many arguments are explicit, so that the generated pattern matches show what is going on.
+  patch : ∀ xs ys → Diff xs ys → List Item
+  patch xs .(y ∷ ys) (ins .xs ys y d) = y ∷ patch xs ys d
+  patch .(x ∷ xs) ys (del xs .ys x d) = patch xs ys d
+  patch .(x ∷ xs) .(x ∷ ys) (cpy xs ys x d) = x ∷ patch xs ys d
+  patch .[] .[] end = []
+
+  -- *Very* simple cost function
+  cost : ∀ {xs ys} → Diff xs ys → ℕ
+  cost (ins xs ys y d) = 1 + cost d
+  cost (del xs ys x d) = 1 + cost d
+  cost (cpy xs ys x d) = 1 + cost d
+  cost end = 0
+
+  _⊓_ : ∀ {xs ys} → Diff xs ys → Diff xs ys → Diff xs ys
+  dx ⊓ dy =
+    if ⌊ cost dx ≤? cost dy ⌋ then
+      dx
+    else
+      dy
+
+  diff : ∀ xs ys → Diff xs ys
+  diff [] [] = end
+  diff [] (x ∷ ys) = ins [] ys x (diff [] ys)
+  diff (x ∷ xs) [] = del xs [] x (diff xs [])
+  diff (x ∷ xs) (y ∷ ys) with x ≟ y
+  diff (x ∷ xs) (.x ∷ ys) | yes refl = cpy xs ys x (diff xs ys)
+  diff (x ∷ xs) (y ∷ ys)  | no ¬p =
+    (del xs (y ∷ ys) x (diff xs (y ∷ ys))) ⊓ (ins (x ∷ xs) ys y (diff (x ∷ xs) ys))
+
+  patch-diff-spec : ∀ xs ys → patch xs ys (diff xs ys) ≡ ys
+  patch-diff-spec [] [] = refl
+  patch-diff-spec [] (y ∷ ys) rewrite patch-diff-spec [] ys = refl
+  patch-diff-spec (x ∷ xs) [] rewrite patch-diff-spec xs [] = refl
+  patch-diff-spec (x ∷ xs) (y ∷ ys) with x ≟ y
+  patch-diff-spec (x ∷ xs) (.x ∷ ys) | yes refl rewrite patch-diff-spec xs ys = refl
+  -- Pattern matching on this comparison result simplifies the proof a lot and avoids needing to use p-if.
+  patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ with (cost (diff xs (y ∷ ys)) ≤? cost (diff (x ∷ xs) ys))
+  patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ | yes _ rewrite patch-diff-spec xs       (y ∷ ys) = refl
+  patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ | no _  rewrite patch-diff-spec (x ∷ xs) ys       = refl
 
 -- Sec. 3
 module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
