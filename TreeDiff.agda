@@ -38,6 +38,13 @@ p-if : ∀ {T : Set} test (P : T → Set) t e → P t → P e → P (if test the
 p-if true  _ _ _ Pt Pe = Pt
 p-if false _ _ _ Pt Pe = Pe
 
+-- From https://lists.chalmers.se/pipermail/agda/2012/004357.html:
+type-signature : ∀ {a} (A : Set a) → A → A
+type-signature A x = x
+
+syntax type-signature A x = x of-type A
+
+
 -- Sec. 3
 module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   _==_ : Item → Item → Bool
@@ -100,11 +107,25 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   lem-delete-first x xs =
     begin
       (if ⌊ x ≟ x ⌋ then just xs else nothing)
-    ≡⟨ cong (λ □ → if □ then just xs else nothing) (==refl x) ⟩
+    ≡⟨ cong-step (==refl x) ⟩
       (if true then just xs else nothing)
     ≡⟨⟩
       just xs
     ∎
+    where
+      -- Here and below, cong-step local lemmas are simply applications of
+      -- congruence done using rewrite instead of cong.
+      --
+      -- The source and target terms appear both in result type of cong-step and
+      -- in the equational reasoning steps.
+      --
+      cong-step :
+            ⌊ x ≟ x ⌋ ≡ true
+        → ----------------------------------------------------------------------
+            (if ⌊ x ≟ x ⌋ then just xs else nothing of-type Maybe (List Item))
+        ≡
+            (if true      then just xs else nothing)
+      cong-step p rewrite p = refl
 
   patch-diff-spec : ∀ xs ys → patch (diff xs ys) xs ≡ just ys
 
@@ -115,24 +136,47 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   patch-diff-spec-lem-cong-insert x xs ys =
     begin
       patch (diff xs ys) xs >>= insert x
-    ≡⟨ cong (λ □ → □ >>= insert x) (patch-diff-spec xs ys) ⟩
+    ≡⟨ cong-step (patch-diff-spec xs ys) ⟩
+      just ys >>= insert x
+    ≡⟨⟩
       insert x ys
     ≡⟨⟩
       just (x ∷ ys)
     ∎
+    where
+      cong-step :
+                  patch (diff xs ys) xs
+                ≡
+                  just ys
+                → -------------------------------------------------------------
+                  patch (diff xs ys) xs >>= insert x
+                ≡
+                  just ys               >>= insert x
+      cong-step p rewrite p = refl
+
 
   patch-diff-spec-lem-del x xs ys =
     begin
       patch (del x (diff xs ys)) (x ∷ xs)
     ≡⟨⟩
       delete x (x ∷ xs) >>= patch (diff xs ys)
-    ≡⟨ cong (λ □ → □ >>= patch (diff xs ys)) (lem-delete-first x xs) ⟩
+    ≡⟨ cong-step (lem-delete-first x xs) ⟩
       just xs >>= patch (diff xs ys)
     ≡⟨⟩
       patch (diff xs ys) xs
     ≡⟨ patch-diff-spec xs ys ⟩
       just ys
     ∎
+    where
+      cong-step :
+            delete x (x ∷ xs)
+          ≡
+            just xs
+          → -------------------------------------------
+            delete x (x ∷ xs) >>= patch (diff xs ys)
+          ≡
+            just xs           >>= patch (diff xs ys)
+      cong-step p rewrite p = refl
 
   patch-diff-spec-lem-ins y xs ys =
     begin
@@ -167,20 +211,27 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       (insert x <=< patch (diff xs ys) <=< delete x) (x ∷ xs)
     ≡⟨⟩
       (if ⌊ x ≟ x ⌋ then just xs else nothing) >>=
-      (λ x₁ → patch (diff xs ys) x₁ >>= (λ ys₁ → just (x ∷ ys₁)))
-    ≡⟨ cong
-        (λ □ →
-          (if □ then just xs else nothing) >>=
-          (λ x₁ → patch (diff xs ys) x₁ >>= (λ ys₁ → just (x ∷ ys₁))))
-        (==refl x)
-     ⟩
+      (λ x₁ → patch (diff xs ys) x₁ >>= insert x)
+    ≡⟨ cong-step (==refl x) ⟩
       (if true then just xs else nothing) >>=
-      (λ x₁ → patch (diff xs ys) x₁ >>= (λ ys₁ → just (x ∷ ys₁)))
+      (λ x₁ → patch (diff xs ys) x₁ >>= insert x)
     ≡⟨⟩
       patch (diff xs ys) xs >>= insert x
     ≡⟨ patch-diff-spec-lem-cong-insert x xs ys ⟩
       just (x ∷ ys)
     ∎
+    where
+      cong-step :
+                  ⌊ x ≟ x ⌋
+                ≡
+                  true
+                → -------------------------------------------
+                  (if ⌊ x ≟ x ⌋ then just xs else nothing) >>=
+                  (λ x₁ → patch (diff xs ys) x₁ >>= insert x)
+                ≡
+                  (if true      then just xs else nothing) >>=
+                  (λ x₁ → patch (diff xs ys) x₁ >>= insert x)
+      cong-step p rewrite p = refl
 
   patch-diff-spec (x ∷ xs) (y ∷ ys) | no ¬p =
     p-if
@@ -188,7 +239,8 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       (λ d → patch d (x ∷ xs) ≡ just (y ∷ ys))
       (del x (diff xs (y ∷ ys)))
       (ins y (diff (x ∷ xs) ys))
-      (patch-diff-spec-lem-del x xs (y ∷ ys)) (patch-diff-spec-lem-ins y (x ∷ xs) ys)
+      (patch-diff-spec-lem-del x xs (y ∷ ys))
+      (patch-diff-spec-lem-ins y (x ∷ xs) ys)
 
 -- Sec. 4
 module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} _≡_) where
@@ -280,8 +332,7 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
         just (xs ++ xss)
       else
         nothing)
-    ≡⟨ cong (λ □ → if □ then just (xs ++ xss) else nothing)
-            (==refl x (length xs)) ⟩
+    ≡⟨ cong-step (==refl x (length xs)) ⟩
       (if true then
         just (xs ++ xss)
       else
@@ -289,6 +340,20 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
     ≡⟨⟩
       just (xs ++ xss)
     ∎
+    where
+      cong-step :
+                  ((x , length xs) == (x , length xs)) ≡ true
+                → -------------------------------------------
+                  (if (x , length xs) == (x , length xs) then
+                    just (xs ++ xss)
+                  else
+                    nothing of-type Maybe (List Tree))
+                ≡
+                  (if true then
+                    just (xs ++ xss)
+                  else
+                    nothing)
+      cong-step p rewrite p = refl
 
   -- XXX belongs in Data.List.Properties
   splitAt-++ : ∀ {ℓ} {A : Set ℓ} (xs ys : List A) → splitAt (length xs) (xs ++ ys) ≡ (xs , ys)
@@ -364,13 +429,7 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
       (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>= (λ x₁ →
         patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
         insert (x , length xs))
-    ≡⟨ cong
-       (λ □ →
-         (if □ then just (xs ++ xss) else nothing) >>= (λ x₁ →
-           patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
-           insert (x , length xs)))
-       (==refl x (length xs))
-    ⟩
+    ≡⟨ cong-step-1 (==refl x (length xs)) ⟩
       (if true then just (xs ++ xss) else nothing) >>=
         (λ x₁ →
            patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
@@ -378,16 +437,36 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
     ≡⟨⟩
       patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
       insert (x , length xs)
-    ≡⟨ cong (λ □ →
-               patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
-               insert (x , □))
-            length-xs≟ℕlength-ys
-    ⟩
+    ≡⟨ cong-step-2 length-xs≟ℕlength-ys ⟩
       patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
       insert (x , length ys)
     ≡⟨ patch-diff-spec-lem-ins (xs ++ xss) x ys yss ⟩
       just (node x ys ∷ yss)
     ∎
+    where
+      cong-step-1 :
+                  ((x , length xs) == (x , length xs)) ≡ true
+                → -------------------------------------------
+                  (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>= (λ x₁ →
+                    patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
+                    insert (x , length xs))
+                ≡
+                  (if true then just (xs ++ xss) else nothing) >>=
+                    (λ x₁ →
+                       patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
+                       insert (x , length xs))
+      cong-step-1 p rewrite p = refl
+
+      cong-step-2 :
+                  (length xs ≡ length ys)
+                → -------------------------------------------
+                  patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
+                  insert (x , length xs)
+                ≡
+                  patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
+                  insert (x , length ys)
+      cong-step-2 p rewrite p = refl
+
   patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | yes _ | no _ = patch-diff-spec-rest x xs xss y ys yss
   patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no _ | yes _ = patch-diff-spec-rest x xs xss y ys yss
   patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no _ | no _ = patch-diff-spec-rest x xs xss y ys yss
