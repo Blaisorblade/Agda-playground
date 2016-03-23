@@ -24,14 +24,11 @@ open ≡-Reasoning
 -- _<=<_ appears in the paper in Sec. 3 (named _⋄_). _>>=_ is inlined there, but I took it out-of-line
 -- because with-clauses are handled badly during equational reasoning.
 
-infixl 5 _>>=_
-_>>=_ : {A B : Set} → Maybe A → (A → Maybe B) → Maybe B
-(just y) >>= g = g y
-nothing >>= _  = nothing
-
 infixr 5 _<=<_
 _<=<_ : {A B C : Set} → (B → Maybe C) → (A → Maybe B) → (A → Maybe C)
-_<=<_ {A} {B} {C} g f x = f x >>= g
+_<=<_ {A} {B} {C} g f x with f x
+... | just y = g y
+... | nothing = nothing
 
 -- Development in Sec. 3, adapted so that changes are indexed by source and
 -- destination. The main advantage is that this allows operations to not be
