@@ -23,12 +23,12 @@ open ≡-Reasoning
 -- _<=<_ appears in the paper in Sec. 3 (named _⋄_). _>>=_ is inlined there, but I took it out-of-line
 -- because with-clauses are handled badly during equational reasoning.
 
-infixr 5 _>>=_
+infixl 5 _>>=_
 _>>=_ : {A B : Set} → Maybe A → (A → Maybe B) → Maybe B
 (just y) >>= g = g y
 nothing >>= _  = nothing
 
-infixl 5 _<=<_
+infixr 5 _<=<_
 _<=<_ : {A B C : Set} → (B → Maybe C) → (A → Maybe B) → (A → Maybe C)
 _<=<_ {A} {B} {C} g f x = f x >>= g
 
@@ -211,10 +211,10 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       (insert x <=< patch (diff xs ys) <=< delete x) (x ∷ xs)
     ≡⟨⟩
       (if ⌊ x ≟ x ⌋ then just xs else nothing) >>=
-      (λ x₁ → patch (diff xs ys) x₁ >>= insert x)
+      patch (diff xs ys) >>= insert x
     ≡⟨ cong-step (==refl x) ⟩
       (if true then just xs else nothing) >>=
-      (λ x₁ → patch (diff xs ys) x₁ >>= insert x)
+      patch (diff xs ys) >>= insert x
     ≡⟨⟩
       patch (diff xs ys) xs >>= insert x
     ≡⟨ patch-diff-spec-lem-cong-insert x xs ys ⟩
@@ -227,10 +227,10 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
                   true
                 → -------------------------------------------
                   (if ⌊ x ≟ x ⌋ then just xs else nothing) >>=
-                  (λ x₁ → patch (diff xs ys) x₁ >>= insert x)
+                  patch (diff xs ys) >>= insert x
                 ≡
                   (if true      then just xs else nothing) >>=
-                  (λ x₁ → patch (diff xs ys) x₁ >>= insert x)
+                  patch (diff xs ys) >>= insert x
       cong-step p rewrite p = refl
 
   patch-diff-spec (x ∷ xs) (y ∷ ys) | no ¬p =
@@ -422,18 +422,17 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
        <=< delete (x , length xs))
       (node x xs ∷ xss)
     ≡⟨⟩
-      delete (x , length xs) (node x xs ∷ xss) >>= (λ x₁ →
-        patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
-        insert (x , length xs))
+      delete (x , length xs) (node x xs ∷ xss) >>=
+        patch (diff (xs ++ xss) (ys ++ yss)) >>=
+        insert (x , length xs)
     ≡⟨⟩
-      (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>= (λ x₁ →
-        patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
-        insert (x , length xs))
+      (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>=
+        patch (diff (xs ++ xss) (ys ++ yss)) >>=
+        insert (x , length xs)
     ≡⟨ cong-step-1 (==refl x (length xs)) ⟩
       (if true then just (xs ++ xss) else nothing) >>=
-        (λ x₁ →
-           patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
-           insert (x , length xs))
+          patch (diff (xs ++ xss) (ys ++ yss)) >>=
+          insert (x , length xs)
     ≡⟨⟩
       patch (diff (xs ++ xss) (ys ++ yss)) (xs ++ xss) >>=
       insert (x , length xs)
@@ -447,14 +446,13 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
       cong-step-1 :
                   ((x , length xs) == (x , length xs)) ≡ true
                 → -------------------------------------------
-                  (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>= (λ x₁ →
-                    patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
-                    insert (x , length xs))
+                  (if (x , length xs) == (x , length xs) then just (xs ++ xss) else nothing) >>=
+                    patch (diff (xs ++ xss) (ys ++ yss)) >>=
+                    insert (x , length xs)
                 ≡
                   (if true then just (xs ++ xss) else nothing) >>=
-                    (λ x₁ →
-                       patch (diff (xs ++ xss) (ys ++ yss)) x₁ >>=
-                       insert (x , length xs))
+                    patch (diff (xs ++ xss) (ys ++ yss)) >>=
+                    insert (x , length xs)
       cong-step-1 p rewrite p = refl
 
       cong-step-2 :
