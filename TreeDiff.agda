@@ -126,7 +126,7 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
       patch (del x (diff xs ys)) (x ∷ xs)
     ≡⟨⟩
       delete x (x ∷ xs) >>= patch (diff xs ys)
-    ≡⟨ cong (λ □ → □ >>= patch (diff xs ys))  (lem-delete-first x xs) ⟩
+    ≡⟨ cong (λ □ → □ >>= patch (diff xs ys)) (lem-delete-first x xs) ⟩
       just xs >>= patch (diff xs ys)
     ≡⟨⟩
       patch (diff xs ys) xs
