@@ -265,26 +265,22 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
 
   {-# NO_TERMINATION_CHECK #-}
   patch-diff-spec : ∀ xss yss → patch (diff xss yss) xss ≡ just yss
-  patch-diff-spec-rest : ∀ x xs xss y ys yss → patch (diff-rest x xs xss y ys yss) (node x xs ∷ xss) ≡ just (node y ys ∷ yss)
-
-  patch-diff-spec-lem-ins : ∀ xss y ys yss → patch (ins (y , length ys) (diff xss (ys ++ yss))) xss ≡ just (node y ys ∷ yss)
-  patch-diff-spec-lem-ins xss y ys yss rewrite patch-diff-spec xss (ys ++ yss) | lem-insert-first y ys yss = refl
 
   patch-diff-spec-lem-del : ∀ x xs xss yss → patch (del (x , length xs) (diff (xs ++ xss) yss)) (node x xs ∷ xss) ≡ just yss
   patch-diff-spec-lem-del x xs xss yss rewrite lem-delete-first x xs xss | patch-diff-spec (xs ++ xss) yss = refl
 
   patch-diff-spec [] [] = refl
-  patch-diff-spec [] (node x xs ∷ yss) = patch-diff-spec-lem-ins [] x xs yss
+  patch-diff-spec [] (node x xs ∷ yss) rewrite patch-diff-spec [] (xs ++ yss) | lem-insert-first x xs yss = refl
   patch-diff-spec (node x xs ∷ xss) [] = patch-diff-spec-lem-del x xs xss []
-  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) with x ≟ℓ y | length xs ≟ℕ length ys
-  patch-diff-spec (node x xs ∷ xss) (node .x ys ∷ yss) | yes refl | yes length-xs≟ℕlength-ys
-    rewrite ==refl x (length xs) | length-xs≟ℕlength-ys =
-      patch-diff-spec-lem-ins (xs ++ xss) x ys yss
 
-  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | yes _ | no _ = patch-diff-spec-rest x xs xss y ys yss
-  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no _ | yes _ = patch-diff-spec-rest x xs xss y ys yss
-  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no _ | no _ = patch-diff-spec-rest x xs xss y ys yss
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) with x ≟ℓ y | length xs ≟ℕ length ys | (cost (diff (node x xs ∷ xss) (ys ++ yss))) ≤? (cost (diff (xs ++ xss) (node y ys ∷ yss)))
+  patch-diff-spec (node x xs ∷ xss) (node .x ys ∷ yss) | yes refl | yes length-xs≟ℕlength-ys | _
+    rewrite ==refl x (length xs) | length-xs≟ℕlength-ys | patch-diff-spec (xs ++ xss) (ys ++ yss) | lem-insert-first x ys yss =
+      refl
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | yes _ | no  _ | yes _ rewrite patch-diff-spec (node x xs ∷ xss) (ys ++ yss) | lem-insert-first y ys yss = refl
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no  _ | yes _ | yes _ rewrite patch-diff-spec (node x xs ∷ xss) (ys ++ yss) | lem-insert-first y ys yss = refl
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no  _ | no  _ | yes _ rewrite patch-diff-spec (node x xs ∷ xss) (ys ++ yss) | lem-insert-first y ys yss = refl
 
-  patch-diff-spec-rest x xs xss y ys yss with (cost (diff (node x xs ∷ xss) (ys ++ yss))) ≤? (cost (diff (xs ++ xss) (node y ys ∷ yss)))
-  patch-diff-spec-rest x xs xss y ys yss | yes p = patch-diff-spec-lem-ins (node x xs ∷ xss) y ys yss
-  patch-diff-spec-rest x xs xss y ys yss | no ¬p = patch-diff-spec-lem-del x xs xss (node y ys ∷ yss)
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | yes _ | no  _ | no  _ = patch-diff-spec-lem-del x xs xss (node y ys ∷ yss)
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no  _ | yes _ | no  _ = patch-diff-spec-lem-del x xs xss (node y ys ∷ yss)
+  patch-diff-spec (node x xs ∷ xss) (node y ys ∷ yss) | no  _ | no  _ | no  _ = patch-diff-spec-lem-del x xs xss (node y ys ∷ yss)
