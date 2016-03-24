@@ -232,7 +232,7 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
 --
 -- This simplifies the proof. However, patch-diff-spec is especially shortened
 -- by doing the proof in a more concise way.
-module IlcListDIff (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
+module IlcListDiff (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   _==_ : Item → Item → Bool
   x == y = ⌊ x ≟ y ⌋
 
