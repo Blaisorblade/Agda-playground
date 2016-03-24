@@ -257,6 +257,30 @@ module IlcListDiff (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   patch .(x ∷ xs) .(x ∷ ys) (cpy xs ys x d) = x ∷ patch xs ys d
   patch .[] .[] end = []
 
+  -- A version of patch embedding its correctness proof.
+  --
+  -- Of course one could cheat by just returning the ys argument, and up to
+  -- definitional equality that's exactly what we do; the point is to show that
+  -- we could erase the 2nd argument in principle. See IlcListDiffIrrelevant.
+  --
+  -- The advantage is that it's trivial to produce a proof, so that
+  -- patch-diff-spec-v2 is easier than patch-diff-spec to prove. We don't need
+  -- to case-split in the proof depending on which change is cheaper. Using
+  -- patch-correct and patch-v2, we can exploit the proof of that fact that we
+  -- did (implicitly) when typechecking diff and proved that both branches are
+  -- type-correct.
+  patch-correct : ∀ xs ys → Diff xs ys → Σ (List Item) λ ys′ → ys ≡ ys′
+  patch-correct xs .(y ∷ ys) (ins .xs ys y d) with patch-correct xs ys d
+  ... | ys′ , ys≡ys′ rewrite ys≡ys′ = y ∷ ys′ , refl
+  patch-correct .(x ∷ xs) .ys (del xs ys x d) with patch-correct xs ys d
+  ... | ys′ , ys≡ys′ rewrite ys≡ys′ = ys′ , refl
+  patch-correct .(x ∷ xs) .(x ∷ ys) (cpy xs ys x d) with patch-correct xs ys d
+  ... | ys′ , ys≡ys′ rewrite ys≡ys′ = x ∷ ys′ , refl
+  patch-correct .[] .[] end = [] , refl
+
+  patch-v2 : ∀ xs ys → Diff xs ys → List Item
+  patch-v2 = λ xs ys → proj₁ ∘′ patch-correct xs ys
+
   -- *Very* simple cost function
   cost : ∀ {xs ys} → Diff xs ys → ℕ
   cost (ins xs ys y d) = 1 + cost d
@@ -285,3 +309,35 @@ module IlcListDiff (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ with (cost (diff xs (y ∷ ys)) ≤? cost (diff (x ∷ xs) ys))
   patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ | yes _ rewrite patch-diff-spec xs       (y ∷ ys) = refl
   patch-diff-spec (x ∷ xs) (y ∷ ys)  | no _ | no _  rewrite patch-diff-spec (x ∷ xs) ys       = refl
+
+  patch-diff-spec-v2 : ∀ xs ys → patch-v2 xs ys (diff xs ys) ≡ ys
+  patch-diff-spec-v2 xs ys with patch-correct xs ys (diff xs ys)
+  patch-diff-spec-v2 xs ys | .ys , refl = refl
+
+-- Semi-failed experiment with irrelevance, it does not work well.
+
+module IlcListDiffIrrelevant (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
+  -- Here we have the 2nd endpoint, but it is declared irrelevant.
+  data Diff : List Item → .(List Item) → Set where
+    ins : ∀ xs .ys → (y : Item) → Diff xs ys → Diff xs (y ∷ ys)
+    del : ∀ xs .ys → (x : Item) → Diff xs ys → Diff (x ∷ xs) ys
+    cpy : ∀ xs .ys → (x : Item) → Diff xs ys → Diff (x ∷ xs) (x ∷ ys)
+    end : Diff [] []
+
+  {-
+  -- The irrelevant argument is not supported in the type of the argument continuation.
+  patch-correct : ∀ {R : Set} xs .ys → Diff xs ys → ((ys′ : List Item) → {- .(ys ≡ ys′) → -} R) → R -- Σ (List Item) λ ys′ → ys ≡ ys′
+  -- ys₁ should be .(y ∷ ys), but that's neither generated nor accepted by Agda.
+  patch-correct xs ys₁ (ins .xs ys y d) k = {!!}
+  patch-correct .(x ∷ xs) ys (del xs ys₁ x d) k = {!!}
+  patch-correct .(x ∷ xs) ys (cpy xs ys₁ x d) k = {!!}
+  patch-correct .[] ys end k = {!!}
+  -}
+
+  -- At least, here we can write a copy of patch with the 2nd argument marked irrelevant.
+  -- We can bind ys from the changes, but only pass it in irrelevant contexts.
+  patch : ∀ xs .ys → Diff xs ys → List Item
+  patch xs        _ (ins .xs ys y d) = y ∷ patch xs ys d
+  patch .(x ∷ xs) _ (del xs ys x d) = patch xs ys d
+  patch .(x ∷ xs) _ (cpy xs ys x d) = x ∷ patch xs ys d
+  patch .[]       _ end = []
