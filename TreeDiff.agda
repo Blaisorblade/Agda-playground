@@ -11,6 +11,7 @@ module TreeDiff where
 
 open import Data.Bool hiding (_≟_)
 open import Data.Empty
+open import Data.Unit hiding (_≤?_)
 open import Data.List
 open import Data.Maybe
 open import Data.Nat hiding (_⊓_) renaming (_≟_ to _≟ℕ_)
@@ -31,6 +32,14 @@ _<=<_ : {A B C : Set} → (B → Maybe C) → (A → Maybe B) → (A → Maybe C
 _<=<_ {A} {B} {C} g f x with f x
 ... | just y = g y
 ... | nothing = nothing
+
+module Min {I : Set} (Diff : I → I → Set) (cost : ∀ {xs ys} → Diff xs ys → ℕ) where
+  _⊓_ : ∀ {xs ys} → Diff xs ys → Diff xs ys → Diff xs ys
+  dx ⊓ dy =
+    if ⌊ cost dx ≤? cost dy ⌋ then
+      dx
+    else
+      dy
 
 -- Sec. 3
 module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
@@ -73,12 +82,7 @@ module ForLists (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   cost (cpy _ d) = 1 + cost d
   cost end       = 0
 
-  _⊓_ : Diff → Diff → Diff
-  dx ⊓ dy =
-    if ⌊ cost dx ≤? cost dy ⌋ then
-      dx
-    else
-      dy
+  open Min {⊤} (λ _ _ → Diff) cost
 
   diff : List Item → List Item → Diff
   diff [] [] = end
@@ -139,12 +143,7 @@ module ForTrees (Label : Set) (a b c : Label) (_≟ℓ_ : Decidable {A = Label} 
   cost (cpy _ d) = 1 + cost d
   cost end       = 0
 
-  _⊓_ : Diff → Diff → Diff
-  dx ⊓ dy =
-    if ⌊ cost dx ≤? cost dy ⌋ then
-      dx
-    else
-      dy
+  open Min {⊤} (λ _ _ → Diff) cost
 
   ex1 = node a (node b [] ∷ node c [] ∷ node c [] ∷ [])
 
@@ -265,12 +264,7 @@ module IlcListDiff (Item : Set) (_≟_ : Decidable {A = Item} _≡_) where
   cost (cpy xs ys x d) = 1 + cost d
   cost end = 0
 
-  _⊓_ : ∀ {xs ys} → Diff xs ys → Diff xs ys → Diff xs ys
-  dx ⊓ dy =
-    if ⌊ cost dx ≤? cost dy ⌋ then
-      dx
-    else
-      dy
+  open Min Diff cost
 
   diff : ∀ xs ys → Diff xs ys
   diff [] [] = end
