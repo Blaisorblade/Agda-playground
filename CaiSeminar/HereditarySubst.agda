@@ -77,14 +77,9 @@ data _≼_ : (Γ₁ Γ₂ : Con) → Set where
          Γ₁ ≼ (Γ₂ , τ)
 
 wkv≼ : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Var Γ₁ τ → Var Γ₂ τ
-wkv≼ ∅ ()
-wkv≼ (drop τ₁ Γ₁≼Γ₂) x = vs (wkv≼ Γ₁≼Γ₂ x)
 wkv≼ (keep τ Γ₁≼Γ₂) vz = vz
 wkv≼ (keep σ Γ₁≼Γ₂) (vs x) = vs (wkv≼ Γ₁≼Γ₂ x)
--- Caveat: we want the equation for wkv≼ (drop ...) to hold definitionally.
--- Reordering the equation can lose the ∅ case but makes that equation stop
--- holding definitionally; I guess we could prove it as a lemma by splitting on
--- the variable, but that's more cumbersome.
+wkv≼ (drop τ₁ Γ₁≼Γ₂) x = vs (wkv≼ Γ₁≼Γ₂ x)
 
 wkTm≼ : ∀ {Γ₁ Γ₂ τ} → Γ₁ ≼ Γ₂ → Tm Γ₁ τ → Tm Γ₂ τ
 wkTm≼ Γ₁≼Γ₂ (var x) = var (wkv≼ Γ₁≼Γ₂ x)
@@ -92,20 +87,11 @@ wkTm≼ Γ₁≼Γ₂ (app s t) = app (wkTm≼ Γ₁≼Γ₂ s) (wkTm≼ Γ₁�
 wkTm≼ Γ₁≼Γ₂ (Λ t) = Λ (wkTm≼ (keep _ Γ₁≼Γ₂) t)
 
 --
--- Second, a (novel?) hybrid of both machineries.
+-- Second, a hybrid of both machineries.
 --
 -- Caveat: it might be easier to use Shub from McBride's "Dependently-typed
--- metaprogramming in Agda", but I haven't tried.
+-- metaprogramming in Agda", but I haven't tried. Also, that appears more general.
 --
-
-{-
--- True but unused
-wkv′ : ∀ {Γ₁ Γ₂ σ τ} → (x : Var Γ₁ σ) → Γ₁ ≼ Γ₂ → Var (Γ₁ - x) τ → Var Γ₂ τ
-wkv′ x Γ₁≼Γ₂ v = wkv≼ Γ₁≼Γ₂ (wkv x v)
--}
-
-eq′ : ∀ {Γ₁ Γ₂ σ τ} → (Γ₁≼Γ₂ : Γ₁ ≼ Γ₂) → (x : Var Γ₁ σ) → (y : Var Γ₂ τ) → EqV (wkv≼ Γ₁≼Γ₂ x) y
-eq′ Γ₁≼Γ₂ x y = eq (wkv≼ Γ₁≼Γ₂ x) y
 
 _conDiff_ : ∀ {Γ₁ Γ₂ τ} (Γ₁≼Γ₂ : Γ₁ ≼ Γ₂) (x : Var Γ₁ τ) → (Γ₁ - x) ≼ (Γ₂ - wkv≼ Γ₁≼Γ₂ x)
 ∅ conDiff ()
@@ -114,12 +100,12 @@ keep τ Γ₁≼Γ₂ conDiff vs x = keep τ (Γ₁≼Γ₂ conDiff x)
 drop τ Γ₁≼Γ₂ conDiff vz = drop τ (Γ₁≼Γ₂ conDiff vz)
 drop τ Γ₁≼Γ₂ conDiff vs x = drop τ (Γ₁≼Γ₂ conDiff (vs x))
 
-substVar≼ : ∀ {Γ₁ Γ₂ σ τ} → Var Γ₂ τ → (Γ₁≼Γ₂ : Γ₁ ≼ Γ₂) → (x : Var Γ₁ σ) → Tm (Γ₁ - x) σ → Tm (Γ₂ - wkv≼ Γ₁≼Γ₂ x) τ
-substVar≼ v Γ₁≼Γ₂ x u with eq′ Γ₁≼Γ₂ x v
-substVar≼ .(wkv≼ Γ₁≼Γ₂ x) Γ₁≼Γ₂ x u | same = wkTm≼ (Γ₁≼Γ₂ conDiff x) u
-substVar≼ .(wkv (wkv≼ Γ₁≼Γ₂ x) z) Γ₁≼Γ₂ x u | diff .(wkv≼ Γ₁≼Γ₂ x) z = var z
+-- Here, we allow substituting a term u defined in a bigger context into a term
+-- in a smaller context.
+subst≼ : ∀ {Γ₁ Γ₂ σ τ} → Tm Γ₁ τ → (Γ₁≼Γ₂ : Γ₁ ≼ Γ₂) → (x : Var Γ₁ σ) → Tm (Γ₂ - wkv≼ Γ₁≼Γ₂ x) σ → Tm (Γ₂ - wkv≼ Γ₁≼Γ₂ x) τ
+subst≼ t Γ₁≼Γ₂ x u = subst (wkTm≼ Γ₁≼Γ₂ t) (wkv≼ Γ₁≼Γ₂ x) u
 
-subst≼ : ∀ {Γ₁ Γ₂ σ τ} → Tm Γ₂ τ → (Γ₁≼Γ₂ : Γ₁ ≼ Γ₂) → (x : Var Γ₁ σ) → Tm (Γ₁ - x) σ → Tm (Γ₂ - wkv≼ Γ₁≼Γ₂ x) τ
-subst≼ (var v) Γ₁≼Γ₂ x u = substVar≼ v Γ₁≼Γ₂ x u
-subst≼ (app t₁ t₂) Γ₁≼Γ₂ x u = app (subst≼ t₁ Γ₁≼Γ₂ x u) (subst≼ t₂ Γ₁≼Γ₂ x u)
-subst≼ (Λ t) Γ₁≼Γ₂ x u = Λ (subst≼ t (drop _ Γ₁≼Γ₂) x u)
+-- Here, we allow substituting a term u defined in a smaller context into a term
+-- in a bigger context.
+subst≼′ : ∀ {Γ₁ Γ₂ σ τ} → Tm Γ₂ τ → (Γ₁≼Γ₂ : Γ₁ ≼ Γ₂) → (x : Var Γ₁ σ) → Tm (Γ₁ - x) σ → Tm (Γ₂ - wkv≼ Γ₁≼Γ₂ x) τ
+subst≼′ t Γ₁≼Γ₂ x u = subst t (wkv≼ Γ₁≼Γ₂ x) (wkTm≼ (Γ₁≼Γ₂ conDiff x) u)
