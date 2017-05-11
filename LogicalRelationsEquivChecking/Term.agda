@@ -1,5 +1,6 @@
-module Term (Const : Set) where
+module Term where
 
+postulate Const : Set
 infixr 6 _⇒_
 
 data Ty : Set where

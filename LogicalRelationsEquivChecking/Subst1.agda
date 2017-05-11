@@ -1,6 +1,7 @@
-module Subst1 (Const : Set) where
-open import Term Const
+module Subst1 where
+open import Term
 
+infixl 20 _-_
 _-_ : {σ : Ty} → (Γ : Con) → Var Γ σ → Con
 ε - ()
 (Γ , σ) - vz = Γ
@@ -10,6 +11,25 @@ wkv : ∀ {Γ σ τ} → (x : Var Γ σ) → Var (Γ - x) τ → Var Γ τ
 wkv vz y = vs y
 wkv (vs x) vz = vz
 wkv (vs x) (vs y) = vs (wkv x y)
+
+swap : ∀ {Γ σ τ} → (x : Var Γ σ) → (y : Var (Γ - x) τ) → Var (Γ - wkv x y) σ
+swap vz y = vz
+swap (vs x) vz = x
+swap (vs x) (vs y) = vs (swap x y)
+
+import Relation.Binary.PropositionalEquality as P
+open P hiding (subst)
+swapCtx : ∀ σ τ Γ → (x : Var Γ σ) → (y : Var (Γ - x) τ) → Γ - x - y ≡ Γ - wkv x y - swap x y
+swapCtx σ τ (Γ , .σ) vz y = refl
+swapCtx σ τ (Γ , .τ) (vs x) vz = refl
+swapCtx σ τ (Γ , σ₁) (vs x) (vs y) = cong (λ □ → □ , σ₁) (swapCtx _ _ Γ x y)
+
+open import Data.Product hiding (swap)
+
+swapCtxT : ∀ {σ τ τ₂ Γ} → (x : Var Γ σ) → (y : Var (Γ - x) τ) → (t : Tm (Γ - x - y) τ₂) → Σ[ t′ ∈ Tm (Γ - wkv x y - swap x y) τ₂ ] t′ ≡ P.subst (λ □ → Tm □ _) (swapCtx _ _ _ x y) t
+swapCtxT vz y t = (t , refl)
+swapCtxT (vs x) vz t = (t , refl)
+swapCtxT (vs x) (vs y) t rewrite swapCtx _ _ _ x y = (t , refl)
 
 data EqV : ∀ {Γ σ τ} → Var Γ σ → Var Γ τ → Set where
   same : ∀ {Γ σ} → {x : Var Γ σ} → EqV x x

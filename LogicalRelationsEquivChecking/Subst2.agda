@@ -1,7 +1,6 @@
-module Subst2 (Const : Set) where
+module Subst2 where
 
-import Term
-open Term Const
+open import Term
 
 open import Data.List
 _<><_ : Con → List Ty → Con
