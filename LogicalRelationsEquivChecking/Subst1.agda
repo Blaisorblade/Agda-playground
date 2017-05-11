@@ -19,6 +19,11 @@ swap (vs x) (vs y) = vs (swap x y)
 
 import Relation.Binary.PropositionalEquality as P
 open P hiding (subst)
+
+-- wkv-vs-rewrite : ∀ {Γ σ τ} → (x : Var Γ σ) → (y : Var (Γ - x) τ) → vs (wkv x y) ≡ wkv (vs x) (vs y)
+-- wkv-vs-rewrite vz y = {!!}
+-- wkv-vs-rewrite (vs x) y = {!!}
+
 swapCtx : ∀ σ τ Γ → (x : Var Γ σ) → (y : Var (Γ - x) τ) → Γ - x - y ≡ Γ - wkv x y - swap x y
 swapCtx σ τ (Γ , .σ) vz y = refl
 swapCtx σ τ (Γ , .τ) (vs x) vz = refl
@@ -26,10 +31,21 @@ swapCtx σ τ (Γ , σ₁) (vs x) (vs y) = cong (λ □ → □ , σ₁) (swapCt
 
 open import Data.Product hiding (swap)
 
+-- Oh dear, we need subst in the statement!
 swapCtxT : ∀ {σ τ τ₂ Γ} → (x : Var Γ σ) → (y : Var (Γ - x) τ) → (t : Tm (Γ - x - y) τ₂) → Σ[ t′ ∈ Tm (Γ - wkv x y - swap x y) τ₂ ] t′ ≡ P.subst (λ □ → Tm □ _) (swapCtx _ _ _ x y) t
 swapCtxT vz y t = (t , refl)
 swapCtxT (vs x) vz t = (t , refl)
 swapCtxT (vs x) (vs y) t rewrite swapCtx _ _ _ x y = (t , refl)
+
+import Relation.Binary.HeterogeneousEquality as H
+open H hiding (subst)
+
+swapCtxTH : ∀ {σ τ τ₂ Γ} → (x : Var Γ σ) → (y : Var (Γ - x) τ) → (t : Tm (Γ - x - y) τ₂) → Σ[ t′ ∈ Tm (Γ - wkv x y - swap x y) τ₂ ] t′ ≅ t
+swapCtxTH x y t rewrite swapCtx _ _ _ x y = t , refl
+
+-- swapCtxTH vz y t = (t , refl)
+-- swapCtxTH (vs x) vz t = (t , refl)
+-- swapCtxTH (vs x) (vs y) t rewrite swapCtx _ _ _ x y = (t , refl)
 
 data EqV : ∀ {Γ σ τ} → Var Γ σ → Var Γ τ → Set where
   same : ∀ {Γ σ} → {x : Var Γ σ} → EqV x x
